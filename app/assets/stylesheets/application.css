@@ -1,0 +1,36 @@
+/* Shared tokens. Propshaft serves every file in this folder; see store.css and control.css. */
+:root {
+  --ground: #f4f5f7;
+  --surface: #ffffff;
+  --ink: #16181d;
+  --muted: #3f4550;
+  --line: #c9ced6;
+  --line-soft: #e4e7ec;
+
+  /* The button colors are the whole point: they differ in lightness as well as hue. */
+  --blue: #1e40af;
+  --orange: #fb923c;
+  --on-orange: #1c1208;
+  --error: #3f4550;
+
+  --dev: #6d28d9;
+  --alpha: #0f766e;
+  --beta: #be185d;
+  --user: #475569;
+
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
+  --display: "Space Grotesk", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+}
+
+a { color: var(--blue); }
+a:hover { color: var(--ink); }

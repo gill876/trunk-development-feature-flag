@@ -1,0 +1,18 @@
+<main class="control">
+  <header class="control__header">
+    <div>
+      <h1>Flagship Control</h1>
+      <p>What each bot saw on its last 3 runs. Refreshes every 10 s while this tab is open.</p>
+    </div>
+    <div class="control__actions">
+      <%= button_to "Start 30-min demo", demo_path, class: "button button--secondary", form_class: "inline-form" %>
+      <%= button_to "Send bots now", runs_path, class: "button", form_class: "inline-form" %>
+    </div>
+  </header>
+
+  <% if notice %>
+    <p class="control__notice" role="status"><%= notice %></p>
+  <% end %>
+
+  <div id="board"><%= render "board", board: @board %></div>
+</main>

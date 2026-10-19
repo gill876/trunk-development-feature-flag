@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# One-time setup of the demo's own GCP project. Safe to re-run: each step checks first.
+#
+#   make setup BILLING_ACCOUNT=XXXXXX-XXXXXX-XXXXXX GITHUB_REPO=owner/name
+#
+# Writes the project ID to .gcp-project (git-ignored), which every other make target reads.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+source script/common.sh
+
+BILLING_ACCOUNT="${BILLING_ACCOUNT:?Set BILLING_ACCOUNT (see: gcloud billing accounts list)}"
+GITHUB_REPO="${GITHUB_REPO:-}"
+
+if [ -z "$PROJECT_ID" ]; then
+  PROJECT_ID="flagship-demo-$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 4)"
+fi
+echo "$PROJECT_ID" > .gcp-project
+need_project
+
+say "== Project and billing: everything lives in one project, so teardown is one delete"
+gcloud projects describe "$PROJECT_ID" >/dev/null 2>&1 || run gcloud projects create "$PROJECT_ID" --name="Flagship demo"
+run gcloud billing projects link "$PROJECT_ID" --billing-account="$BILLING_ACCOUNT"
+
+say "== APIs"
+run gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com \
+  firestore.googleapis.com secretmanager.googleapis.com cloudscheduler.googleapis.com iam.googleapis.com \
+  iamcredentials.googleapis.com sts.googleapis.com billingbudgets.googleapis.com "${P[@]}"
+
+say "== Budget alerts (they email you; they don't stop anything)"
+budgets=$(gcloud billing budgets list --billing-account="$BILLING_ACCOUNT" --billing-project="$PROJECT_ID" --format="value(displayName)")
+if ! grep -qx "Flagship credit burn" <<<"$budgets"; then
+  run gcloud billing budgets create --billing-account="$BILLING_ACCOUNT" --billing-project="$PROJECT_ID" \
+    --display-name="Flagship credit burn" --budget-amount=1000JPY --filter-projects="projects/$PROJECT_ID" \
+    --credit-types-treatment=EXCLUDE_ALL_CREDITS \
+    --threshold-rule=percent=0.5 --threshold-rule=percent=0.9 --threshold-rule=percent=1.0
+fi
+if ! grep -qx "Flagship real money" <<<"$budgets"; then
+  run gcloud billing budgets create --billing-account="$BILLING_ACCOUNT" --billing-project="$PROJECT_ID" \
+    --display-name="Flagship real money" --budget-amount=100JPY --filter-projects="projects/$PROJECT_ID" \
+    --credit-types-treatment=INCLUDE_ALL_CREDITS --threshold-rule=percent=1.0
+fi
+
+say "== Firestore, in Tokyo: one document holds the board"
+gcloud firestore databases describe --database="(default)" "${P[@]}" >/dev/null 2>&1 || \
+  run gcloud firestore databases create --location="$REGION" --type=firestore-native "${P[@]}"
+
+say "== Artifact Registry: keeps the 3 newest images"
+gcloud artifacts repositories describe "$REPO" --location="$REGION" "${P[@]}" >/dev/null 2>&1 || \
+  run gcloud artifacts repositories create "$REPO" --repository-format=docker --location="$REGION" "${P[@]}"
+run gcloud artifacts repositories set-cleanup-policies "$REPO" --location="$REGION" "${P[@]}" \
+  --policy=script/artifact-cleanup.json --no-dry-run
+
+say "== Service accounts: one per piece, each with only what it needs"
+for name in flagship-store flagship-control flagship-bots flagship-scheduler flagship-deployer; do
+  gcloud iam service-accounts describe "$(sa $name)" "${P[@]}" >/dev/null 2>&1 || \
+    run gcloud iam service-accounts create "$name" --display-name="$name" "${P[@]}"
+done
+
+grant() { run gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:$(sa "$1")" --role="$2" --condition=None --quiet >/dev/null; }
+grant flagship-control roles/datastore.user                 # read the board
+grant flagship-control roles/run.jobsExecutorWithOverrides  # Send bots now, Start demo
+grant flagship-bots roles/datastore.user                    # write the board
+grant flagship-bots roles/run.viewer                        # read the store's traffic split
+grant flagship-bots roles/cloudscheduler.admin              # switch demo mode off again
+grant flagship-scheduler roles/run.invoker                  # start the bots job
+for role in roles/run.admin roles/cloudbuild.builds.editor roles/storage.admin roles/viewer roles/serviceusage.serviceUsageConsumer; do
+  grant flagship-deployer "$role"                           # CI: build and ship canaries
+done
+run gcloud iam service-accounts add-iam-policy-binding "$(sa flagship-store)" "${P[@]}" \
+  --member="serviceAccount:$(sa flagship-deployer)" --role=roles/iam.serviceAccountUser --quiet >/dev/null
+
+say "== Secrets"
+[ -f config/master.key ] || die "config/master.key is missing; it decrypts config/credentials.yml.enc."
+if ! gcloud secrets describe rails-master-key "${P[@]}" >/dev/null 2>&1; then
+  run gcloud secrets create rails-master-key --replication-policy=automatic --data-file=config/master.key "${P[@]}"
+fi
+if ! gcloud secrets describe control-password "${P[@]}" >/dev/null 2>&1; then
+  openssl rand -base64 18 | tr -d '\n' | run gcloud secrets create control-password --replication-policy=automatic --data-file=- "${P[@]}"
+fi
+for name in flagship-store flagship-control flagship-bots; do
+  run gcloud secrets add-iam-policy-binding rails-master-key --member="serviceAccount:$(sa $name)" \
+    --role=roles/secretmanager.secretAccessor "${P[@]}" --quiet >/dev/null
+done
+run gcloud secrets add-iam-policy-binding control-password --member="serviceAccount:$(sa flagship-control)" \
+  --role=roles/secretmanager.secretAccessor "${P[@]}" --quiet >/dev/null
+
+if [ -n "$GITHUB_REPO" ]; then
+  say "== GitHub Actions: keyless deploys, and only from $GITHUB_REPO's main branch"
+  number=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
+  gcloud iam workload-identity-pools describe github --location=global "${P[@]}" >/dev/null 2>&1 || \
+    run gcloud iam workload-identity-pools create github --location=global --display-name="GitHub Actions" "${P[@]}"
+  gcloud iam workload-identity-pools providers describe github --workload-identity-pool=github --location=global "${P[@]}" >/dev/null 2>&1 || \
+    run gcloud iam workload-identity-pools providers create-oidc github --workload-identity-pool=github --location=global "${P[@]}" \
+      --issuer-uri="https://token.actions.githubusercontent.com" \
+      --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref" \
+      --attribute-condition="assertion.repository == '$GITHUB_REPO' && assertion.ref == 'refs/heads/main'"
+  run gcloud iam service-accounts add-iam-policy-binding "$(sa flagship-deployer)" "${P[@]}" \
+    --member="principalSet://iam.googleapis.com/projects/$number/locations/global/workloadIdentityPools/github/attribute.repository/$GITHUB_REPO" \
+    --role=roles/iam.workloadIdentityUser --quiet >/dev/null
+
+  provider="projects/$number/locations/global/workloadIdentityPools/github/providers/github"
+  if command -v gh >/dev/null; then
+    run gh variable set GCP_PROJECT_ID --repo="$GITHUB_REPO" --body="$PROJECT_ID"
+    run gh variable set GCP_WIF_PROVIDER --repo="$GITHUB_REPO" --body="$provider"
+    run gh variable set GCP_DEPLOYER --repo="$GITHUB_REPO" --body="$(sa flagship-deployer)"
+  else
+    say "Set these GitHub repository variables: GCP_PROJECT_ID=$PROJECT_ID GCP_WIF_PROVIDER=$provider GCP_DEPLOYER=$(sa flagship-deployer)"
+  fi
+fi
+
+say "Done. Project: $PROJECT_ID. Next: make launch"

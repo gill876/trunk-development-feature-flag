@@ -1,0 +1,24 @@
+<% content_for :title, "Flagship Store" %>
+
+<main class="store">
+  <div class="store__brand">Flagship</div>
+
+  <section class="store__product">
+    <h1>Trunk Mug</h1>
+    <p>One product, one button. The page exists so the bots have a button to check.</p>
+    <button id="buy" type="button" class="buy buy--<%= @color %>" data-color="<%= @color %>">Buy now</button>
+  </section>
+
+  <dl class="store__debug">
+    <dt>visitor</dt><dd><%= @visitor.id %> (<%= @visitor.cohort %>)</dd>
+    <dt>revision</dt><dd><%= AppInfo.revision %> · <%= AppInfo.version %></dd>
+    <dt>flag</dt><dd>none in this version</dd>
+  </dl>
+
+  <p class="store__hint">
+    See the page as a bot does:
+    <%= link_to "?as=dev-01", root_path(as: "dev-01") %>,
+    <%= link_to "?as=beta-02", root_path(as: "beta-02") %>,
+    <%= link_to "?as=user-04", root_path(as: "user-04") %>
+  </p>
+</main>

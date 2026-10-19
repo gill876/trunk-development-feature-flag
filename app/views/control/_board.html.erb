@@ -1,0 +1,81 @@
+<% if board.empty? %>
+  <section class="panel empty">
+    <h2>No runs yet</h2>
+    <p>Press <b>Send bots now</b>. The first run takes about 30 seconds, since the store may be starting from zero.</p>
+  </section>
+<% else %>
+  <p class="control__status">
+    Last run <%= time_ago_in_words(board.last_run_at) %> ago (<%= l board.last_run_at, format: "%H:%M:%S" %>).
+    <% if board.demo_until %>
+      Demo mode is on until <%= l board.demo_until, format: "%H:%M" %>.
+    <% else %>
+      Demo mode is off.
+    <% end %>
+  </p>
+
+  <section class="tiles">
+    <div class="tile">
+      <span class="tile__label">Traffic on the main URL</span>
+      <span class="tile__value"><%= board.traffic_summary %></span>
+    </div>
+    <div class="tile">
+      <span class="tile__label">Orange button, latest visit</span>
+      <span class="tile__value"><%= board.orange_count %> of <%= board.bot_count %> bots</span>
+    </div>
+    <div class="tile">
+      <span class="tile__label">Errors, last 3 runs</span>
+      <span class="tile__value"><%= board.error_count.zero? ? "none" : "#{board.error_count} of #{board.recent_visit_count} visits" %></span>
+    </div>
+    <div class="tile">
+      <span class="tile__label">Canary tag URL</span>
+      <span class="tile__value"><%= board.canary_summary %></span>
+    </div>
+  </section>
+
+  <div class="board-layout">
+    <section class="panel grid-panel">
+      <div class="legend">
+        <span class="legend__item"><span class="cell cell--blue"></span>blue: flag off</span>
+        <span class="legend__item"><span class="cell cell--orange"></span>orange: flag on</span>
+        <span class="legend__item"><span class="cell cell--plain">c</span>served by the canary</span>
+        <span class="legend__item"><span class="cell cell--error">×</span>error</span>
+        <span class="legend__note">3 runs × 3 visits, newest on the right</span>
+      </div>
+      <div class="grid-scroll">
+        <table class="grid">
+          <tbody>
+            <% board.rows.each do |row| %>
+              <tr>
+                <th scope="row">
+                  <span class="avatar avatar--<%= row.cohort %>"><%= row.cohort.first.upcase %><%= row.handle.last(1) %></span>
+                  <%= row.handle %>
+                </th>
+                <td class="grid__cells">
+                  <% row.cells.each_with_index do |cell, index| %>
+                    <span class="cell cell--<%= cell.state %><%= " cell--gap" if index.positive? && (index % BotSquad::VISITS_PER_BOT).zero? %>" title="<%= cell.title %>"><%= cell.state == "error" ? "×" : ("c" if cell.canary) %></span>
+                  <% end %>
+                </td>
+                <td class="grid__latest"><%= row.latest %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <aside class="panel cohorts">
+      <h2>By cohort, latest run</h2>
+      <% board.cohorts.each do |count| %>
+        <div class="cohort">
+          <div class="cohort__head">
+            <span class="swatch swatch--<%= count.cohort %>"></span>
+            <b><%= count.cohort.capitalize %></b>
+            <span class="cohort__count"><%= count.orange %> of <%= count.total %> see orange</span>
+          </div>
+          <div class="bar"><div class="bar__fill" style="width: <%= (100 * count.orange / count.total.to_f).round %>%"></div></div>
+        </div>
+      <% end %>
+      <p class="cohorts__note">dev-01 calls the canary's tag URL whenever there is one, so it skips the traffic split.</p>
+    </aside>
+  </div>
+<% end %>

@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+# Every Cloud Run step of the demo. The Makefile calls this: `make canary PCT=10` runs
+# `script/flagship canary`. Commands that change something are printed before they run.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+source script/common.sh
+
+service_json() { gcloud run services describe "$SERVICE" "${R[@]}" --format=json; }
+traffic() { service_json | ruby script/traffic.rb "$@"; }
+version() { git rev-parse --short HEAD; }
+image() { echo "$REGISTRY/store:$(version)"; }
+
+# Images are named after the commit, so the tree has to be committed first.
+build() {
+  [ -z "$(git status --porcelain)" ] || die "Commit your changes first: the image is named after the commit."
+  if gcloud artifacts docker images describe "$(image)" "${P[@]}" >/dev/null 2>&1; then
+    say "Image for $(version) is already built."
+  else
+    run gcloud builds submit --tag="$(image)" --region="$REGION" "${P[@]}"
+  fi
+}
+
+store_flags=(--service-account="$(sa flagship-store)" --allow-unauthenticated
+  --min-instances=0 --max-instances=2 --concurrency=10 --cpu=1 --memory=512Mi --timeout=30 --cpu-boost)
+
+# Step 0: the first deploy goes straight to 100%. Also deploys the dashboard and the bots.
+launch() {
+  need_project
+  build
+  run gcloud run deploy "$SERVICE" --image="$(image)" "${R[@]}" "${store_flags[@]}" \
+    --set-env-vars="APP_VERSION=$(version)" --set-secrets="RAILS_MASTER_KEY=rails-master-key:latest"
+  tools
+  urls
+}
+
+# The dashboard, the bots job and the demo-mode schedule, all from the current commit's image.
+tools() {
+  need_project
+  build
+  run gcloud run deploy "$CONTROL" --image="$(image)" "${R[@]}" --service-account="$(sa flagship-control)" \
+    --allow-unauthenticated --min-instances=0 --max-instances=1 --concurrency=20 --cpu=1 --memory=512Mi --timeout=30 \
+    --set-env-vars="APP_ROLE=control,APP_VERSION=$(version),GOOGLE_CLOUD_PROJECT=$PROJECT_ID,REGION=$REGION,BOARD_STORE=firestore,BOTS_JOB=$JOB" \
+    --set-secrets="RAILS_MASTER_KEY=rails-master-key:latest,CONTROL_PASSWORD=control-password:latest"
+  run gcloud run jobs deploy "$JOB" --image="$(image)" "${R[@]}" --service-account="$(sa flagship-bots)" \
+    --command=/rails/bin/rails --args=runner,BotSquad.run --tasks=1 --max-retries=0 --task-timeout=180s \
+    --cpu=1 --memory=512Mi \
+    --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,REGION=$REGION,BOARD_STORE=firestore,STORE_SERVICE=$SERVICE,SCHEDULER_JOB=$SCHEDULE" \
+    --set-secrets="RAILS_MASTER_KEY=rails-master-key:latest"
+  if ! gcloud scheduler jobs describe "$SCHEDULE" --location="$REGION" "${P[@]}" >/dev/null 2>&1; then
+    # Created with a once-a-year schedule and paused straight away, so it can't fire before
+    # anyone asks. Demo mode resumes it; the bots pause it again after 30 minutes.
+    run gcloud scheduler jobs create http "$SCHEDULE" --location="$REGION" "${P[@]}" --schedule="0 0 1 1 *" \
+      --uri="https://run.googleapis.com/v2/projects/$PROJECT_ID/locations/$REGION/jobs/$JOB:run" --http-method=POST \
+      --oauth-service-account-email="$(sa flagship-scheduler)"
+    run gcloud scheduler jobs pause "$SCHEDULE" --location="$REGION" "${P[@]}"
+    run gcloud scheduler jobs update http "$SCHEDULE" --location="$REGION" "${P[@]}" --schedule="* * * * *"
+  fi
+}
+
+# Step 1: deploy the current commit with 0% of traffic, reachable only through the canary tag URL.
+ship() {
+  need_project
+  ! traffic "split?" || die "A canary is taking traffic. Finish it first: make promote or make rollback."
+  build
+  local current
+  current=$(traffic serving)
+  run gcloud run deploy "$SERVICE" --image="$(image)" "${R[@]}" --no-traffic --tag=canary \
+    --update-env-vars="APP_VERSION=$(version)" --remove-env-vars=BREAK_STORE
+  run gcloud run services update-traffic "$SERVICE" "${R[@]}" --update-tags="stable=$current"
+  say "$(version) is deployed with 0% of traffic; only dev-01 sees it. Next: make canary PCT=10"
+}
+
+# The bad-canary drill: today's image again, with BREAK_STORE=1 standing in for a bad commit.
+ship_broken() {
+  need_project
+  ! traffic "split?" || die "A canary is taking traffic. Finish it first: make promote or make rollback."
+  local current image_now
+  current=$(traffic serving)
+  image_now=$(gcloud run services describe "$SERVICE" "${R[@]}" --format="value(spec.template.spec.containers[0].image)")
+  run gcloud run deploy "$SERVICE" --image="$image_now" "${R[@]}" --no-traffic --tag=canary --update-env-vars=BREAK_STORE=1
+  run gcloud run services update-traffic "$SERVICE" "${R[@]}" --update-tags="stable=$current"
+  say "A broken canary is deployed with 0% of traffic. Next: make canary PCT=10, watch the errors, then make rollback"
+}
+
+# Step 2: send PCT% of requests to the canary. The rest stay on stable.
+canary() {
+  need_project
+  local pct="${PCT:?Set PCT, e.g. make canary PCT=10}"
+  run gcloud run services update-traffic "$SERVICE" "${R[@]}" --to-tags="canary=$pct"
+}
+
+# Step 3: the canary takes all traffic, and traffic follows the latest revision again.
+promote() {
+  need_project
+  local canary latest
+  canary=$(traffic tag canary)
+  latest=$(gcloud run services describe "$SERVICE" "${R[@]}" --format="value(status.latestCreatedRevisionName)")
+  [ "$canary" = "$latest" ] || die "The canary ($canary) isn't the newest revision ($latest). Run make ship again first."
+  run gcloud run services update-traffic "$SERVICE" "${R[@]}" --to-latest
+  say "$canary takes 100%. The old revision stays deployed, so make rollback still works."
+}
+
+# All traffic back to the revision tagged stable. Takes seconds: nothing is rebuilt.
+rollback() {
+  need_project
+  run gcloud run services update-traffic "$SERVICE" "${R[@]}" --to-tags=stable=100
+  say "All traffic is back on $(traffic tag stable). Fix forward: commit the fix, then make ship."
+}
+
+# Steps 4-7: change who gets a flag. A new revision from the same image, no rebuild.
+flag() {
+  need_project
+  local name="${FLAG:?Set FLAG, e.g. make flag FLAG=orange_button SEGMENTS=dev}" key vars=()
+  key="FEATURES__$(echo "$name" | tr '[:lower:]' '[:upper:]')"
+  [ -z "${SEGMENTS:-}" ] || vars+=("${key}_SEGMENTS=$SEGMENTS")
+  [ -z "${PERCENT:-}" ] || vars+=("${key}_PERCENTAGE=$PERCENT")
+  [ -z "${USERS:-}" ] || vars+=("${key}_USERS=$USERS")
+  [ ${#vars[@]} -gt 0 ] || die "Say who gets it: SEGMENTS=dev,alpha,beta and/or PERCENT=25 and/or USERS=user-03"
+  traffic "on-latest?" || die "Traffic is pinned to one revision (a canary is waiting, or you rolled back). Run make promote, or ship a fix first."
+  # gcloud separates env vars with commas, and a segment list has commas in it.
+  # A leading ^|^ tells gcloud to split on | instead.
+  run gcloud run services update "$SERVICE" "${R[@]}" --update-env-vars="^|^$(IFS='|'; echo "${vars[*]}")"
+}
+
+# The kill switch: off for everyone, back to the default in credentials.
+flag_off() {
+  need_project
+  local name="${FLAG:?Set FLAG, e.g. make flag-off FLAG=orange_button}" key
+  key="FEATURES__$(echo "$name" | tr '[:lower:]' '[:upper:]')"
+  traffic "on-latest?" || die "Traffic is pinned to one revision. Run make promote or make rollback first."
+  run gcloud run services update "$SERVICE" "${R[@]}" --update-env-vars="${key}=false" \
+    --remove-env-vars="${key}_SEGMENTS,${key}_PERCENTAGE,${key}_USERS"
+}
+
+bots() {
+  need_project
+  run gcloud run jobs execute "$JOB" "${R[@]}" --wait
+}
+
+demo() {
+  need_project
+  run gcloud run jobs execute "$JOB" "${R[@]}" --update-env-vars=START_DEMO=30
+  say "Demo mode: the bots run every minute for 30 minutes, then switch themselves off."
+}
+
+bots_off() {
+  need_project
+  run gcloud scheduler jobs pause "$SCHEDULE" --location="$REGION" "${P[@]}"
+}
+
+status() {
+  need_project
+  traffic table
+}
+
+urls() {
+  need_project
+  echo "Store:      $(traffic url)"
+  echo "Canary URL: $(traffic url canary || true)"
+  echo "Dashboard:  $(gcloud run services describe "$CONTROL" "${R[@]}" --format='value(status.url)' 2>/dev/null)  (user: flagship, password: make password)"
+}
+
+password() {
+  need_project
+  gcloud secrets versions access latest --secret=control-password "${P[@]}"
+  echo
+}
+
+teardown() {
+  need_project
+  say "This deletes the whole project $PROJECT_ID: services, images, data, everything."
+  run gcloud projects delete "$PROJECT_ID"
+  rm -f .gcp-project
+}
+
+command="${1:-}"
+case "$command" in
+  launch|tools|ship|canary|promote|rollback|flag|bots|demo|status|urls|password|teardown) "$command" ;;
+  ship-broken) ship_broken ;;
+  flag-off) flag_off ;;
+  bots-off) bots_off ;;
+  *) die "usage: script/flagship launch|tools|ship|ship-broken|canary|promote|rollback|flag|flag-off|bots|demo|bots-off|status|urls|password|teardown" ;;
+esac

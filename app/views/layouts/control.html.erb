@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Flagship Control</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+
+    <link rel="icon" href="/icon.png" type="image/png">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+    <%= stylesheet_link_tag :app %>
+  </head>
+
+  <body class="control-body">
+    <%= yield %>
+
+    <script>
+      // Refresh the board every 10 s, only while this tab is visible: each refresh is one Firestore read.
+      (() => {
+        const board = document.getElementById("board");
+        if (!board) return;
+        const refresh = async () => {
+          if (document.visibilityState !== "visible") return;
+          try {
+            const response = await fetch("<%= board_path %>", { headers: { Accept: "text/html" } });
+            if (response.ok) board.innerHTML = await response.text();
+          } catch (_) { /* offline for a moment; try again next tick */ }
+        };
+        setInterval(refresh, 10000);
+        document.addEventListener("visibilitychange", refresh);
+      })();
+    </script>
+  </body>
+</html>
