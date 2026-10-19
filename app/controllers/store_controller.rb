@@ -10,7 +10,8 @@ class StoreController < ApplicationController
     raise SimulatedBug, "Simulated bug: this revision was deployed with BREAK_STORE=1." if ENV["BREAK_STORE"] == "1"
 
     @visitor = Visitor.from(request, cookies)
-    @color = "blue"
+    @color = FeatureFlags.enabled_for?(:orange_button, @visitor) ? "orange" : "blue"
+    @flag_reason = FeatureFlags.reason_for(:orange_button, @visitor)
   end
 
   private

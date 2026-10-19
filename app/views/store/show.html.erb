@@ -12,7 +12,7 @@
   <dl class="store__debug">
     <dt>visitor</dt><dd><%= @visitor.id %> (<%= @visitor.cohort %>)</dd>
     <dt>revision</dt><dd><%= AppInfo.revision %> · <%= AppInfo.version %></dd>
-    <dt>flag</dt><dd>none in this version</dd>
+    <dt>flag</dt><dd>orange_button <%= @color == "orange" ? "ON" : "off" %>: <%= @flag_reason %></dd>
   </dl>
 
   <p class="store__hint">

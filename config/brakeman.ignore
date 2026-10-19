@@ -1,0 +1,28 @@
+{
+  "ignored_warnings": [
+    {
+      "warning_type": "Command Injection",
+      "warning_code": 14,
+      "fingerprint": "38114671dd47f570847c3a704249754dac11d6c8bab78116a65032bb6f9068df",
+      "check_name": "Execute",
+      "message": "Possible command injection",
+      "file": "lib/backport/active_support/dot_env_configuration.rb",
+      "line": 99,
+      "link": "https://brakemanscanner.org/docs/warning_types/command_injection/",
+      "code": "`#{$1}`",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "ActiveSupport::DotEnvConfiguration",
+        "method": "execute_commands"
+      },
+      "user_input": "$1",
+      "confidence": "Medium",
+      "cwe_id": [
+        77
+      ],
+      "note": "Upstream Rails code (ActiveSupport::DotEnvConfiguration, backported verbatim). Running $(command) in .env is a deliberate feature for developers; it only reads .env in development, a file nobody commits."
+    }
+  ],
+  "brakeman_version": "8.1.0"
+}
