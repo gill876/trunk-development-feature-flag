@@ -23,7 +23,11 @@ class Visitor < Data.define(:id, :cohort)
     handle.is_a?(String) && (handle.match?(HANDLE) || handle.match?(GUEST))
   end
 
+  # A flag's segments name these predicates: FEATURES__ORANGE_BUTTON_SEGMENTS=dev,alpha calls dev? and alpha?.
   def dev? = cohort == "dev"
   def alpha? = cohort == "alpha"
   def beta? = cohort == "beta"
+
+  # A flag's allowlist matches a user's id or email. Demo visitors have no email.
+  def email = nil
 end
