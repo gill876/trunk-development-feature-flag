@@ -60,6 +60,11 @@ tools() {
 # Step 1: deploy the current commit with 0% of traffic, reachable only through the canary tag URL.
 ship() {
   need_project
+  service_json >/dev/null 2>&1 || die "There's no store yet. Run make launch first."
+  if traffic "on-latest?" && [ "$(traffic version)" = "$(version)" ]; then
+    say "$(version) is already serving 100% of traffic. Nothing to ship."
+    return
+  fi
   ! traffic "split?" || die "A canary is taking traffic. Finish it first: make promote or make rollback."
   build
   local current

@@ -6,6 +6,7 @@
 #   on-latest?    exits 0 if traffic follows the latest revision (needed before a flag change)
 #   tag NAME      the revision a tag points at
 #   url [TAG]     the service URL, or a tag's URL
+#   version       the commit the latest revision runs (its APP_VERSION)
 #   table         a readable summary for `make status`
 require "json"
 
@@ -26,6 +27,9 @@ when "tag"
   puts target["revisionName"]
 when "url"
   puts ARGV[1] ? traffic.find { |t| t["tag"] == ARGV[1] }&.dig("url") : service.dig("status", "url")
+when "version"
+  env = service.dig("spec", "template", "spec", "containers", 0, "env") || []
+  puts env.find { |e| e["name"] == "APP_VERSION" }&.dig("value")
 when "table"
   latest = service.dig("status", "latestCreatedRevisionName")
   puts "Traffic"
