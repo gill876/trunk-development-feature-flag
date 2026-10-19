@@ -35,5 +35,5 @@ group :development do
   gem "web-console"
 end
 
-gem "google-cloud-firestore", "~> 2.15"
+gem "google-cloud-firestore", "~> 2.15", require: "google/cloud/firestore"
 gem "googleauth", "~> 1.17"

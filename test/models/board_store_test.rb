@@ -10,6 +10,11 @@ class BoardStoreTest < ActiveSupport::TestCase
     assert_equal ids.last, runs.first["id"]
   end
 
+  # Production uses Firestore; the tests don't, so check the client library is at least loaded.
+  test "the Firestore client is loaded" do
+    assert defined?(Google::Cloud::Firestore), "Gemfile must require google/cloud/firestore"
+  end
+
   test "update merges fields without touching runs" do
     store = BoardStore.current
     store.add_run(sample_run)
