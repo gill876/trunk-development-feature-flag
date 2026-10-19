@@ -1,5 +1,7 @@
 require "test_helper"
 
+# Tests for lib/backport. They don't read the app's credentials: CI has no master key
+# (this is a public repo), so the encrypted file can't be decrypted there.
 class BackportTest < ActiveSupport::TestCase
   test "Rails 8.2 ships Rails.app.creds: when this fails, delete lib/backport/" do
     assert Rails.gem_version < Gem::Version.new("8.2.0.alpha"),
@@ -7,26 +9,33 @@ class BackportTest < ActiveSupport::TestCase
   end
 
   test "Rails.app.creds asks the request override, then ENV, then credentials" do
-    creds = Rails.app.creds
-    assert_kind_of ActiveSupport::CombinedConfiguration, creds
-    assert_equal false, creds.option(:features, :orange_button)
+    layers = Rails.app.creds.instance_variable_get(:@configurations).map(&:class)
+    assert_equal [ FeatureOverrideConfiguration, ActiveSupport::EnvConfiguration, ActiveSupport::EncryptedConfiguration ], layers
 
     with_env("FEATURES__ORANGE_BUTTON" => "true") do
       Rails.app.envs.reload
-      assert_equal "true", creds.option(:features, :orange_button), "ENV beats credentials"
+      assert_equal "true", Rails.app.creds.option(:features, :orange_button), "ENV is asked before credentials"
 
       FeatureFlags.with(:orange_button, false) do
-        assert_equal false, creds.option(:features, :orange_button), "the request override beats ENV"
+        assert_equal false, Rails.app.creds.option(:features, :orange_button), "the request override beats ENV"
       end
     end
   ensure
     Rails.app.envs.reload
   end
 
-  test "credentials gained option and require" do
-    assert_equal false, Rails.app.credentials.option(:features, :orange_button)
-    assert_equal "fallback", Rails.app.credentials.option(:missing, default: "fallback")
-    assert_raises(KeyError) { Rails.app.credentials.require(:missing) }
+  test "encrypted credentials gained option and require" do
+    Dir.mktmpdir do |dir|
+      File.write("#{dir}/test.key", ActiveSupport::EncryptedConfiguration.generate_key)
+      credentials = ActiveSupport::EncryptedConfiguration.new(config_path: "#{dir}/credentials.yml.enc",
+        key_path: "#{dir}/test.key", env_key: "BACKPORT_TEST_KEY", raise_if_missing_key: true)
+      credentials.write("features:\n  orange_button: false\n")
+
+      assert_equal false, credentials.option(:features, :orange_button)
+      assert_equal "fallback", credentials.option(:missing, default: "fallback")
+      assert_equal "lazy", credentials.option(:missing, default: -> { "lazy" })
+      assert_raises(KeyError) { credentials.require(:missing) }
+    end
   end
 
   test "ENV keys are upcased and joined with double underscores" do
