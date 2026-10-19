@@ -101,8 +101,10 @@ promote() {
   canary=$(traffic tag canary)
   latest=$(gcloud run services describe "$SERVICE" "${R[@]}" --format="value(status.latestCreatedRevisionName)")
   [ "$canary" = "$latest" ] || die "The canary ($canary) isn't the newest revision ($latest). Run make ship again first."
-  run gcloud run services update-traffic "$SERVICE" "${R[@]}" --to-latest
-  say "$canary takes 100%. The old revision stays deployed, so make rollback still works."
+  # The canary tag comes off: the canary is now just "the latest revision". Left on, it would keep
+  # pointing at this revision while flag changes create newer ones.
+  run gcloud run services update-traffic "$SERVICE" "${R[@]}" --to-latest --remove-tags=canary
+  say "$canary takes 100%. The old revision stays deployed (tag stable), so make rollback still works."
 }
 
 # All traffic back to the revision tagged stable. Takes seconds: nothing is rebuilt.

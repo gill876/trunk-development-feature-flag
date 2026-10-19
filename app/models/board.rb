@@ -62,9 +62,10 @@ class Board
     end
   end
 
+  # "flagship-00004-kzn" → "rev 4-kzn". The number alone isn't unique: two revisions can share it.
   def self.revision_label(name)
-    number = name.to_s[/-(\d{5})-/, 1]
-    number ? "rev #{number.to_i}" : name.to_s
+    number, suffix = name.to_s.match(/-(\d{5})-(\w+)\z/)&.captures
+    number ? "rev #{number.to_i}-#{suffix}" : name.to_s
   end
 
   private

@@ -68,6 +68,10 @@ for role in roles/run.admin roles/cloudbuild.builds.editor roles/storage.admin r
 done
 run gcloud iam service-accounts add-iam-policy-binding "$(sa flagship-store)" "${P[@]}" \
   --member="serviceAccount:$(sa flagship-deployer)" --role=roles/iam.serviceAccountUser --quiet >/dev/null
+# Builds run as the Compute Engine default service account, and starting one means acting as it.
+number=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
+run gcloud iam service-accounts add-iam-policy-binding "$number-compute@developer.gserviceaccount.com" "${P[@]}" \
+  --member="serviceAccount:$(sa flagship-deployer)" --role=roles/iam.serviceAccountUser --quiet >/dev/null
 
 say "== Secrets"
 [ -f config/master.key ] || die "config/master.key is missing; it decrypts config/credentials.yml.enc."
