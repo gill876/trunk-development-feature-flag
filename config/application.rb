@@ -38,6 +38,7 @@ module Flagship
     #
     # The dashboard shows run times in Tokyo time, where the demo is deployed.
     config.time_zone = "Tokyo"
+    config.i18n.available_locales = %i[en ja]
 
     # Don't generate system test files.
     config.generators.system_tests = nil

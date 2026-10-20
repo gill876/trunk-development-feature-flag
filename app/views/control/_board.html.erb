@@ -1,33 +1,33 @@
 <% if board.empty? %>
   <section class="panel empty">
-    <h2>No runs yet</h2>
-    <p>Press <b>Send bots now</b>. The first run takes about 30 seconds, since the store may be starting from zero.</p>
+    <h2><%= t "board.empty_title" %></h2>
+    <p><%= t "board.empty_html", button: t("control.send_bots") %></p>
   </section>
 <% else %>
   <p class="control__status">
-    Last run <%= time_ago_in_words(board.last_run_at) %> ago (<%= l board.last_run_at, format: "%H:%M:%S" %>).
+    <%= t "board.last_run", time: time_ago_in_words(board.last_run_at), clock: l(board.last_run_at, format: "%H:%M:%S") %>
     <% if board.demo_until %>
-      Demo mode is on until <%= l board.demo_until, format: "%H:%M" %>.
+      <%= t "board.demo_on", time: l(board.demo_until, format: "%H:%M") %>
     <% else %>
-      Demo mode is off.
+      <%= t "board.demo_off" %>
     <% end %>
   </p>
 
   <section class="tiles">
     <div class="tile">
-      <span class="tile__label">Traffic on the main URL</span>
+      <span class="tile__label"><%= t "board.traffic" %></span>
       <span class="tile__value"><%= board.traffic_summary %></span>
     </div>
     <div class="tile">
-      <span class="tile__label">Orange button, latest visit</span>
-      <span class="tile__value"><%= board.orange_count %> of <%= board.bot_count %> bots</span>
+      <span class="tile__label"><%= t "board.orange" %></span>
+      <span class="tile__value"><%= t "board.orange_value", orange: board.orange_count, total: board.bot_count %></span>
     </div>
     <div class="tile">
-      <span class="tile__label">Errors, last 3 runs</span>
-      <span class="tile__value"><%= board.error_count.zero? ? "none" : "#{board.error_count} of #{board.recent_visit_count} visits" %></span>
+      <span class="tile__label"><%= t "board.errors" %></span>
+      <span class="tile__value"><%= board.error_count.zero? ? t("board.none") : t("board.errors_value", errors: board.error_count, visits: board.recent_visit_count) %></span>
     </div>
     <div class="tile">
-      <span class="tile__label">Canary tag URL</span>
+      <span class="tile__label"><%= t "board.canary" %></span>
       <span class="tile__value"><%= board.canary_summary %></span>
     </div>
   </section>
@@ -35,11 +35,11 @@
   <div class="board-layout">
     <section class="panel grid-panel">
       <div class="legend">
-        <span class="legend__item"><span class="cell cell--blue"></span>blue: flag off</span>
-        <span class="legend__item"><span class="cell cell--orange"></span>orange: flag on</span>
-        <span class="legend__item"><span class="cell cell--plain">c</span>served by the canary</span>
-        <span class="legend__item"><span class="cell cell--error">×</span>error</span>
-        <span class="legend__note">3 runs × 3 visits, newest on the right</span>
+        <span class="legend__item"><span class="cell cell--blue"></span><%= t "board.legend.blue" %></span>
+        <span class="legend__item"><span class="cell cell--orange"></span><%= t "board.legend.orange" %></span>
+        <span class="legend__item"><span class="cell cell--plain">c</span><%= t "board.legend.canary" %></span>
+        <span class="legend__item"><span class="cell cell--error">×</span><%= t "board.legend.error" %></span>
+        <span class="legend__note"><%= t "board.legend.note" %></span>
       </div>
       <div class="grid-scroll">
         <table class="grid">
@@ -64,18 +64,18 @@
     </section>
 
     <aside class="panel cohorts">
-      <h2>By cohort, latest run</h2>
+      <h2><%= t "board.cohorts" %></h2>
       <% board.cohorts.each do |count| %>
         <div class="cohort">
           <div class="cohort__head">
             <span class="swatch swatch--<%= count.cohort %>"></span>
             <b><%= count.cohort.capitalize %></b>
-            <span class="cohort__count"><%= count.orange %> of <%= count.total %> see orange</span>
+            <span class="cohort__count"><%= t "board.cohort_value", orange: count.orange, total: count.total %></span>
           </div>
           <div class="bar"><div class="bar__fill" style="width: <%= (100 * count.orange / count.total.to_f).round %>%"></div></div>
         </div>
       <% end %>
-      <p class="cohorts__note">dev-01 calls the canary's tag URL whenever there is one, so it skips the traffic split.</p>
+      <p class="cohorts__note"><%= t "board.cohorts_note" %></p>
     </aside>
   </div>
 <% end %>
