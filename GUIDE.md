@@ -20,8 +20,9 @@ Every command in this guide is a `make` target, and every target prints the real
 7. [Rollout playbook](#7-rollout-playbook)
 8. [When it breaks: rollback or kill switch](#8-when-it-breaks-rollback-or-kill-switch)
 9. [Cleaning up](#9-cleaning-up)
-10. [Costs and guardrails](#costs-and-guardrails)
-11. [Reference: make targets](#reference-make-targets)
+10. [Watching it in production](#10-watching-it-in-production)
+11. [Costs and guardrails](#costs-and-guardrails)
+12. [Reference: make targets](#reference-make-targets)
 
 ---
 
@@ -498,6 +499,8 @@ flowchart TD
 - **Rollback** is for broken *code*. It moves traffic back to the revision tagged `stable`. Nothing is rebuilt, so it takes seconds.
 - **The kill switch** is for a broken *feature* in code that is otherwise fine. `make flag-off` sets the flag to false and removes its targeting, so everyone gets the old behavior and the rest of the release stays.
 
+Which one? [Sentry](docs/monitoring/sentry.md) tags every error with the revision that served it and the visitor's flags. "All on the canary revision" points to a rollback; "all with `flag.orange_button: on`" points to the kill switch.
+
 ### Drill: a canary that fails
 
 ```sh
@@ -520,6 +523,10 @@ This is the dashboard from a real run of the drill, at 10%:
 
 After a rollback, traffic is pinned to the stable revision, so `make flag` refuses to run (see [three things that surprise people](#three-things-that-surprise-people)). Shipping and promoting the fix puts traffic back on "follow the latest".
 
+### Drill: a bug the bots can't see
+
+`make ship-broken BUG=checkout` deploys a canary whose **Buy now** fails, but only for visitors with the orange button. The page still renders, so every bot reports a healthy store. Sentry sees it from real clicks: the `KeyError`, the line of code, a replay of the click, and `flag.orange_button: on` on every event. The walkthrough is in [docs/monitoring/sentry.md](docs/monitoring/sentry.md#the-checkout-drill-a-bug-the-bots-cant-see).
+
 ---
 
 ## 9. Cleaning up
@@ -530,6 +537,22 @@ After a rollback, traffic is pinned to the stable revision, so `make flag` refus
 
 ---
 
+## 10. Watching it in production
+
+The bots and Flagship Control show what a user sees. Three more tools show the rest. [docs/monitoring/](docs/monitoring/README.md) explains each one and the SRE ideas behind them: golden signals, SLOs, error budgets and burn rates.
+
+| Tool | Shows | Docs |
+| --- | --- | --- |
+| **Grafana** | Traffic, errors, latency and instances per revision, from Cloud Run's own metrics. An SLO and the free tier | [grafana.md](docs/monitoring/grafana.md) |
+| **Sentry** | Each error's stack trace, visitor, flags and revision; traces; replays of the minute before a browser error | [sentry.md](docs/monitoring/sentry.md) |
+| **OpenAPI checks** | That the API keeps its promises: in tests, on every PR, and on each canary before it gets traffic | [api.md](docs/api.md) |
+
+This is Grafana's canary dashboard over the drills above. The broken canary, `flagship-00017-xon`, failed every request it got, and the request logs say which bots hit it:
+
+![Grafana's canary dashboard during the drills](docs/images/grafana-canary.png)
+
+---
+
 ## Costs and guardrails
 
 | Piece | Free tier | This demo | Expected |
@@ -537,9 +560,12 @@ After a rollback, traffic is pinned to the stable revision, so `make flag` refus
 | Cloud Run (store, dashboard, bots) | monthly free tier per billing account | scales to zero; a bot run is about 20 s of one CPU | ¥0 |
 | Cloud Build | free build minutes each month | ~5 minutes per new commit | ¥0 |
 | Firestore | 50k reads and 20k writes a day | 1 write per bot run, 1 read per dashboard refresh | ¥0 |
-| Artifact Registry | 0.5 GB | keeps the 3 newest images, ~1 GB | ≈ ¥10 a month |
+| Artifact Registry | 0.5 GB | the newest store images (~0.16 GB each) and Grafana's (~0.55 GB), ~1.5 GB | ≈ ¥20 a month |
 | Cloud Scheduler | 3 jobs per billing account | 1 job, paused unless a demo is on | ¥0 |
-| Secret Manager | 6 secret versions | 2 | ¥0 |
+| Secret Manager | 6 secret versions | 3 (master key, dashboard password, Sentry DSN) | ¥0 |
+| Grafana on Cloud Run | Cloud Run's free tier | 2 GiB, billed only while it answers requests | ¥0 |
+| Cloud Monitoring and Logging | Google Cloud metrics free; 1M time series read and 50 GiB of logs a month | a few dashboard refreshes, a few MiB of logs | ¥0 |
+| Sentry | Developer plan: 5k errors, 5M spans, 50 replays a month | a few events per drill; replays only on errors | ¥0, and the free plan can't bill |
 
 **Estimate: ¥0–100 a month while you experiment.** It's an estimate, not a quote. The Cloud Run free tier is shared with any other projects on the same billing account.
 
@@ -566,13 +592,16 @@ Guardrails:
 | `make canary PCT=10` | step 2: that share of requests to the canary |
 | `make promote` | step 3: the canary takes 100% |
 | `make rollback` | 100% back to the stable revision |
-| `make ship-broken` | drill: a canary that fails every request |
+| `make ship-broken` | drill: a canary that fails every request. `BUG=checkout`: only Buy now, only for orange buttons |
 | `make flag FLAG=… SEGMENTS=… PERCENT=… USERS=…` | steps 4–7: who gets a flag |
 | `make flag-off FLAG=…` | kill switch |
 | `make bots` | run the bots once and wait |
 | `make demo` | bots every minute for 30 minutes |
 | `make bots-off` | stop demo mode now |
+| `make openapi` / `make contract` | lint the API spec / check a running store against it (the canary, or `URL=…`) |
+| `make grafana` | build and deploy Grafana with the dashboards in `grafana/` (CI runs it on every merge) |
+| `make sentry DSN=…` | turn on Sentry for the store, the dashboard and the bots |
 | `make status` | revisions, traffic, tags, flags |
-| `make urls` / `make password` | where things are, and the dashboard password |
+| `make urls` / `make password` | where things are (store, dashboards, Grafana), and the password for both dashboards |
 | `make teardown` | delete the project |
 | `make dev` / `make dev-bots` / `make test` / `make lint` | on your laptop |
