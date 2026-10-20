@@ -2,6 +2,16 @@ ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
 
+# API tests include this: assert_schema_conform(status) checks the request and the response
+# against openapi/openapi.yaml, so the spec and the code can't drift apart.
+module OpenApiContract
+  include Committee::Rails::Test::Methods
+
+  def committee_options
+    @committee_options ||= { schema_path: Rails.root.join("openapi/openapi.yaml").to_s, strict_reference_validation: true }
+  end
+end
+
 module ActiveSupport
   class TestCase
     # Run tests in parallel with specified workers

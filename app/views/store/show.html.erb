@@ -7,6 +7,7 @@
     <h1>Trunk Mug</h1>
     <p>One product, one button. The page exists so the bots have a button to check.</p>
     <button id="buy" type="button" class="buy buy--<%= @color %>" data-color="<%= @color %>">Buy now</button>
+    <p id="order" class="store__order" role="status" hidden></p>
   </section>
 
   <dl class="store__debug">
@@ -20,5 +21,32 @@
     <%= link_to "?as=dev-01", root_path(as: "dev-01") %>,
     <%= link_to "?as=beta-02", root_path(as: "beta-02") %>,
     <%= link_to "?as=user-04", root_path(as: "user-04") %>
+    · <%= link_to "API docs", api_docs_path %>
   </p>
 </main>
+
+<script>
+  // Buy now calls the store's API (see /api/docs). Nothing is sold; the page shows the answer.
+  document.getElementById("buy").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const order = document.getElementById("order");
+    button.disabled = true;
+    try {
+      const response = await fetch("<%= api_v1_purchases_path %>", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ quantity: 1 })
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+      order.textContent = `Ordered one Trunk Mug (${body.id}).`;
+      order.dataset.state = "ok";
+    } catch (error) {
+      order.textContent = "Checkout failed. Nothing was charged; try again.";
+      order.dataset.state = "error";
+    } finally {
+      order.hidden = false;
+      button.disabled = false;
+    }
+  });
+</script>

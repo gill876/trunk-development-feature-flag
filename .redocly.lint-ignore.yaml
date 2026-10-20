@@ -1,0 +1,5 @@
+# Warnings we accept, generated with `npx @redocly/cli lint --generate-ignore-file`.
+# GET /api/v1/flags has no 4xx: a bad or missing visitor handle just makes the visitor a guest.
+openapi/openapi.yaml:
+  operation-4xx-response:
+    - '#/paths/~1api~1v1~1flags/get/responses'

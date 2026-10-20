@@ -139,6 +139,21 @@ flag_off() {
     --remove-env-vars="${key}_SEGMENTS,${key}_PERCENTAGE,${key}_USERS"
 }
 
+# Schemathesis reads openapi/openapi.yaml, makes up requests from it (good ones and bad ones)
+# and checks every answer against it. Settings: schemathesis.toml. Default target: the canary,
+# so CI can check each new canary before it gets traffic. URL=http://localhost:3000 for make dev.
+SCHEMATHESIS=4.29.3
+contract() {
+  local url="${URL:-}" venv="tmp/schemathesis-$SCHEMATHESIS"
+  if [ -z "$url" ]; then
+    need_project
+    url=$(traffic url canary)
+    [ -n "$url" ] || url=$(traffic url)
+  fi
+  [ -x "$venv/bin/schemathesis" ] || { python3 -m venv "$venv" && "$venv/bin/pip" install --quiet "schemathesis==$SCHEMATHESIS"; }
+  run "$venv/bin/schemathesis" run openapi/openapi.yaml --url="$url" --checks=all --max-examples=50 --request-timeout=30
+}
+
 bots() {
   need_project
   run gcloud run jobs execute "$JOB" "${R[@]}" --wait
@@ -182,9 +197,9 @@ teardown() {
 
 command="${1:-}"
 case "$command" in
-  launch|tools|ship|canary|promote|rollback|flag|bots|demo|status|urls|password|teardown) "$command" ;;
+  launch|tools|ship|canary|promote|rollback|flag|contract|bots|demo|status|urls|password|teardown) "$command" ;;
   ship-broken) ship_broken ;;
   flag-off) flag_off ;;
   bots-off) bots_off ;;
-  *) die "usage: script/flagship launch|tools|ship|ship-broken|canary|promote|rollback|flag|flag-off|bots|demo|bots-off|status|urls|password|teardown" ;;
+  *) die "usage: script/flagship launch|tools|ship|ship-broken|canary|promote|rollback|flag|flag-off|contract|bots|demo|bots-off|status|urls|password|teardown" ;;
 esac

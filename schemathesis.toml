@@ -1,0 +1,10 @@
+# Settings for `make contract`, which CI also runs on each new canary. See docs/api.md.
+
+[checks]
+# Rails answers 404, not 405, for a method a route doesn't have. HTTP allows either.
+unsupported_method.enabled = false
+
+[phases.coverage]
+# Don't send methods the spec doesn't list (TRACE, QUERY...). Puma refuses some of them with
+# a 501 before Rails sees them, which says nothing about this app.
+unexpected-methods = []

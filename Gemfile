@@ -30,6 +30,11 @@ group :development, :test do
   gem "rubocop-rails-omakase", require: false
 end
 
+group :test do
+  # Checks API responses against openapi/openapi.yaml [https://github.com/willnet/committee-rails]
+  gem "committee-rails", "~> 0.10.1"
+end
+
 group :development do
   # Use console on exceptions pages [https://github.com/rails/web-console]
   gem "web-console"

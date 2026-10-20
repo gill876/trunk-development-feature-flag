@@ -27,3 +27,6 @@
 
 # Written by google-github-actions/auth in CI.
 gha-creds-*.json
+
+# Schemathesis keeps failing examples here between runs
+/.schemathesis/

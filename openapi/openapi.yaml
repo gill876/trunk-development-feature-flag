@@ -1,0 +1,221 @@
+openapi: 3.0.3
+info:
+  title: Flagship Store API
+  version: 1.0.0
+  description: |
+    The JSON side of the Flagship store: which feature flags a visitor gets, and the
+    purchase the Buy now button makes.
+
+    This file is the contract. The Rails tests check every response against it, CI fails a
+    pull request that breaks it, and after each deploy CI checks the new canary against it
+    before the canary gets any traffic. See docs/api.md.
+
+    There's no sign-in. Like the store page, the API takes the visitor from the
+    `X-Demo-User` header, the `as` query parameter or the `visitor` cookie, in that order.
+    Anyone else becomes a guest.
+servers:
+  - url: /
+    description: Whichever store served this file. A canary's tag URL serves the canary's copy.
+  - url: https://flagship-5olbnbpsha-an.a.run.app
+    description: The store. The traffic split decides which revision answers.
+security: []
+tags:
+  - name: flags
+    description: Feature flags, evaluated for one visitor.
+  - name: purchases
+    description: What the Buy now button does.
+
+paths:
+  /api/v1/flags:
+    get:
+      tags: [flags]
+      operationId: listFlags
+      summary: Which flags are on for this visitor
+      description: The same answer the store page's footer shows, including which rule decided.
+      parameters:
+        - $ref: "#/components/parameters/DemoUser"
+        - $ref: "#/components/parameters/As"
+      responses:
+        "200":
+          description: Every flag the app knows, evaluated for this visitor.
+          headers:
+            X-Revision:
+              $ref: "#/components/headers/X-Revision"
+            X-App-Version:
+              $ref: "#/components/headers/X-App-Version"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FlagList"
+        "500":
+          $ref: "#/components/responses/Broken"
+
+  /api/v1/purchases:
+    post:
+      tags: [purchases]
+      operationId: createPurchase
+      summary: Buy the mug
+      description: Nothing is sold or stored. The answer echoes the order and says which button color the visitor saw.
+      parameters:
+        - $ref: "#/components/parameters/DemoUser"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurchaseRequest"
+      responses:
+        "201":
+          description: The order.
+          headers:
+            X-Revision:
+              $ref: "#/components/headers/X-Revision"
+            X-App-Version:
+              $ref: "#/components/headers/X-App-Version"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Purchase"
+        "400":
+          description: The body isn't valid JSON.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: The body isn't a JSON object, or the quantity isn't a whole number from 1 to 10.
+          headers:
+            X-Revision:
+              $ref: "#/components/headers/X-Revision"
+            X-App-Version:
+              $ref: "#/components/headers/X-App-Version"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/Broken"
+
+components:
+  parameters:
+    DemoUser:
+      name: X-Demo-User
+      in: header
+      required: false
+      description: A demo handle such as `beta-02` (dev-01, alpha-01…02, beta-01…03, user-01…06). Anything else is ignored.
+      schema:
+        type: string
+        example: beta-02
+    As:
+      name: as
+      in: query
+      required: false
+      description: Same as X-Demo-User, for browsers. It's remembered in the `visitor` cookie.
+      schema:
+        type: string
+        example: alpha-01
+
+  headers:
+    X-Revision:
+      description: The Cloud Run revision that answered, such as `flagship-00025-abc`. `local` on a laptop.
+      required: true
+      schema:
+        type: string
+    X-App-Version:
+      description: The git commit that revision was built from. `dev` on a laptop.
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Broken:
+      description: This revision is broken on purpose (`make ship-broken`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Visitor:
+      type: object
+      required: [id, cohort]
+      properties:
+        id:
+          type: string
+          description: A demo handle, or `guest-` and 8 hex digits.
+          example: beta-02
+        cohort:
+          type: string
+          enum: [dev, alpha, beta, user]
+          description: Guests are users.
+
+    Flag:
+      type: object
+      required: [name, enabled, reason]
+      properties:
+        name:
+          type: string
+          example: orange_button
+        enabled:
+          type: boolean
+        reason:
+          type: string
+          description: Which targeting rule decided.
+          example: segment beta
+
+    FlagList:
+      type: object
+      required: [visitor, flags, revision, version]
+      properties:
+        visitor:
+          $ref: "#/components/schemas/Visitor"
+        flags:
+          type: array
+          items:
+            $ref: "#/components/schemas/Flag"
+        revision:
+          type: string
+          example: flagship-00025-abc
+        version:
+          type: string
+          example: be0f7a3
+
+    PurchaseRequest:
+      type: object
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 1
+
+    Purchase:
+      type: object
+      required: [id, visitor, quantity, color, revision, version]
+      properties:
+        id:
+          type: string
+          pattern: "^order-[0-9a-f]{8}$"
+          example: order-3f9a1c2e
+        visitor:
+          type: string
+          example: beta-02
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 10
+        color:
+          type: string
+          enum: [blue, orange]
+          description: The Buy now button's color for this visitor.
+        revision:
+          type: string
+        version:
+          type: string
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
