@@ -1,0 +1,26 @@
+<%# Sentry in the browser: JavaScript errors, page-load traces that continue the server's trace,
+    and, when an error happens, a replay of the minute before it. Only when SENTRY_DSN is set.
+    The DSN is public by design: browsers need it to send anything. docs/monitoring/sentry.md %>
+<% if ENV["SENTRY_DSN"].present? %>
+  <%= Sentry.get_trace_propagation_meta.html_safe %>
+  <script src="https://browser.sentry-cdn.com/11.4.0/bundle.tracing.replay.min.js"
+    integrity="sha384-rNCus5OyWgRjLeXDPCK8SLBxYJEiZScuizBvFNgaDebGSPIUbFxnnbP5j+HJCafc" crossorigin="anonymous"></script>
+  <script>
+    Sentry.init({
+      ...<%= raw sentry_browser_options.to_json %>,
+      integrations: [
+        Sentry.browserTracingIntegration(),
+        // The store shows no personal data, so replays keep its text. Real apps keep the
+        // defaults (maskAllText, blockAllMedia) on.
+        Sentry.replayIntegration({ maskAllText: false, blockAllMedia: false })
+      ],
+      // The browser SDK (v11) collects user info, including the IP address, and cookies by
+      // default. The server SDK doesn't, so turn them off here too.
+      dataCollection: { userInfo: false, cookies: false },
+      tracesSampleRate: 1.0,
+      // No replay of ordinary visits (the free plan has 50 a month); every session with an error.
+      replaysSessionSampleRate: 0,
+      replaysOnErrorSampleRate: 1.0
+    });
+  </script>
+<% end %>

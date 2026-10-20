@@ -4,9 +4,12 @@
 # Two changes from the article, both marked "Changed":
 #   - lists can come from ENV as "dev,alpha,beta" strings
 #   - percentage buckets are a method, so the store's footer can show a visitor's bucket
-# reason_for is new, for the same footer.
+# reason_for and KNOWN are new, for the footer, the API and Sentry.
 module FeatureFlags
   extend self
+
+  # Every flag the app checks. The API lists them and Sentry tags errors with them.
+  KNOWN = %i[orange_button].freeze
 
   def enabled?(flag_name)
     cast_boolean(Rails.app.creds.option(:features, flag_name, default: false))

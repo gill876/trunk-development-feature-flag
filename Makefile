@@ -11,7 +11,7 @@
 
 .DEFAULT_GOAL := help
 .PHONY: help setup launch tools ship ship-broken canary promote rollback flag flag-off \
-        bots demo bots-off status urls password teardown dev dev-bots test lint openapi contract
+        bots demo bots-off status urls password teardown dev dev-bots test lint openapi contract sentry
 
 FLAGSHIP = script/flagship
 
@@ -41,8 +41,8 @@ promote: ## Step 3: the canary takes 100%
 rollback: ## All traffic back to the stable revision, in seconds
 	@$(FLAGSHIP) rollback
 
-ship-broken: ## Drill: deploy a canary that fails every request
-	@$(FLAGSHIP) ship-broken
+ship-broken: ## Drill: a failing canary. BUG=page (every page) or BUG=checkout (Buy now, orange buttons only)
+	@BUG='$(BUG)' $(FLAGSHIP) ship-broken
 
 ## ---- Releasing features (flags)
 flag: ## Steps 4-7: FLAG=orange_button with SEGMENTS=dev,alpha,beta and/or PERCENT=25 and/or USERS=user-03
@@ -57,6 +57,10 @@ openapi: ## Lint the OpenAPI spec, as CI does
 
 contract: ## Check a running store against the spec: the canary, or URL=http://localhost:3000
 	@URL='$(URL)' $(FLAGSHIP) contract
+
+## ---- Monitoring
+sentry: ## Turn on Sentry for the store, dashboard and bots (DSN=https://...ingest.sentry.io/...)
+	@DSN='$(DSN)' $(FLAGSHIP) sentry
 
 ## ---- Bots
 bots: ## Run the 12 bots once and wait for them

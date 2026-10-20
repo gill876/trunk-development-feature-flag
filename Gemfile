@@ -42,3 +42,7 @@ end
 
 gem "google-cloud-firestore", "~> 2.15", require: "google/cloud/firestore"
 gem "googleauth", "~> 1.17"
+
+# Errors, traces and logs to Sentry, when SENTRY_DSN is set [https://docs.sentry.io/platforms/ruby/guides/rails/]
+gem "sentry-ruby", "~> 7.1"
+gem "sentry-rails", "~> 7.1"

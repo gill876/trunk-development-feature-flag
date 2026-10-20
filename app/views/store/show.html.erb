@@ -26,6 +26,10 @@
 </main>
 
 <script>
+  // The browser tells Sentry the same visitor and flag the server does (see SentryVisitorContext).
+  window.Sentry?.setUser({ id: "<%= j @visitor.id %>", segment: "<%= j @visitor.cohort %>" });
+  window.Sentry?.setTag("flag.orange_button", "<%= @color == "orange" ? "on" : "off" %>");
+
   // Buy now calls the store's API (see /api/docs). Nothing is sold; the page shows the answer.
   document.getElementById("buy").addEventListener("click", async (event) => {
     const button = event.currentTarget;
@@ -37,11 +41,14 @@
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ quantity: 1 })
       });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
-      order.textContent = `Ordered one Trunk Mug (${body.id}).`;
+      // A 500 isn't always JSON (Rails' development error page is HTML), so don't count on a body.
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(`Checkout failed with HTTP ${response.status}`);
+      order.textContent = `Ordered one Trunk Mug (${body.id}), ¥${body.total_yen.toLocaleString("ja-JP")}.`;
       order.dataset.state = "ok";
     } catch (error) {
+      // This event uploads the replay, and shares a trace with the server's error.
+      window.Sentry?.captureException(error);
       order.textContent = "Checkout failed. Nothing was charged; try again.";
       order.dataset.state = "error";
     } finally {
