@@ -11,7 +11,7 @@
 
 .DEFAULT_GOAL := help
 .PHONY: help setup launch tools ship ship-broken canary promote rollback flag flag-off \
-        bots demo bots-off status urls password teardown dev dev-bots test lint openapi contract sentry
+        bots demo bots-off status urls password teardown dev dev-bots test lint openapi contract sentry grafana
 
 FLAGSHIP = script/flagship
 
@@ -59,6 +59,9 @@ contract: ## Check a running store against the spec: the canary, or URL=http://l
 	@URL='$(URL)' $(FLAGSHIP) contract
 
 ## ---- Monitoring
+grafana: ## Build and deploy Grafana with the dashboards in grafana/ (CI does this on every merge)
+	@$(FLAGSHIP) grafana
+
 sentry: ## Turn on Sentry for the store, dashboard and bots (DSN=https://...ingest.sentry.io/...)
 	@DSN='$(DSN)' $(FLAGSHIP) sentry
 

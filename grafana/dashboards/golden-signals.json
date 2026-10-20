@@ -1,0 +1,1324 @@
+{
+  "uid": "flagship-golden-signals",
+  "title": "Golden signals",
+  "description": "Traffic, errors, latency and saturation: the four signals Google's SRE book says to watch for any service.",
+  "tags": [
+    "flagship",
+    "sre"
+  ],
+  "timezone": "browser",
+  "editable": false,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "30s",
+      "1m",
+      "5m",
+      "15m"
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "Service",
+        "type": "custom",
+        "query": "flagship,flagship-control,flagship-grafana",
+        "current": {
+          "text": "flagship",
+          "value": "flagship"
+        },
+        "options": [
+          {
+            "text": "flagship",
+            "value": "flagship",
+            "selected": true
+          },
+          {
+            "text": "flagship-control",
+            "value": "flagship-control",
+            "selected": false
+          },
+          {
+            "text": "flagship-grafana",
+            "value": "flagship-grafana",
+            "selected": false
+          }
+        ]
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "Flagship dashboards",
+      "type": "dashboards",
+      "tags": [
+        "flagship"
+      ],
+      "asDropdown": true,
+      "includeVars": false,
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "type": "text",
+      "title": "The four golden signals",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Traffic** (how much is asked), **errors** (how much fails), **latency** (how long it takes) and **saturation**\n(how full it is). If you can only watch four things, watch these. Pick the service at the top left.\n"
+      },
+      "id": 1
+    },
+    {
+      "type": "stat",
+      "title": "Requests",
+      "description": "In the time range picked at the top right.",
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "5m",
+      "maxDataPoints": 50,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum(increase(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"$service\"}[$__interval]))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "Errors (5xx)",
+      "description": "Share of requests in the time range that failed on the server.",
+      "gridPos": {
+        "x": 6,
+        "y": 3,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "5m",
+      "maxDataPoints": 50,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum(increase(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"$service\",response_code_class=\"5xx\"}[$__interval])) or vector(0)",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          },
+          "hide": true
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum(increase(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"$service\"}[$__interval]))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          },
+          "hide": true
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "type": "reduce",
+          "expression": "A",
+          "reducer": "sum",
+          "settings": {
+            "mode": "dropNN"
+          },
+          "hide": true
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "type": "reduce",
+          "expression": "B",
+          "reducer": "sum",
+          "settings": {
+            "mode": "dropNN"
+          },
+          "hide": true
+        },
+        {
+          "refId": "E",
+          "datasource": {
+            "type": "__expr__",
+            "uid": "__expr__"
+          },
+          "type": "math",
+          "expression": "100 * $C / $D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "decimals": 2,
+          "displayName": "Errors (5xx)"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "p95 latency, typical",
+      "description": "The p95 of each few minutes, averaged over the time range.",
+      "gridPos": {
+        "x": 12,
+        "y": 3,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "5m",
+      "maxDataPoints": 50,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"$service\"}[$__interval])))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "mean"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 4
+    },
+    {
+      "type": "stat",
+      "title": "Most instances at once",
+      "description": "Cloud Run's busiest moment in the time range.",
+      "gridPos": {
+        "x": 18,
+        "y": 3,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "2m",
+      "maxDataPoints": 50,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum(run_googleapis_com:container_instance_count{monitored_resource=\"cloud_run_revision\",service_name=\"$service\",state=\"active\"})",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 5
+    },
+    {
+      "type": "timeseries",
+      "title": "Traffic: requests per second, by status",
+      "description": "2xx worked, 3xx redirected, 4xx was the client's fault, 5xx was ours.",
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "2m",
+      "targets": [
+        {
+          "refId": "2",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"$service\",response_code_class=\"2xx\"}[$__interval]))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        },
+        {
+          "refId": "3",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"$service\",response_code_class=\"3xx\"}[$__interval]))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        },
+        {
+          "refId": "4",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"$service\",response_code_class=\"4xx\"}[$__interval]))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        },
+        {
+          "refId": "5",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"$service\",response_code_class=\"5xx\"}[$__interval]))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": 600000,
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "2"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "2xx"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "3"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "3xx"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "4"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "4xx"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "5"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "5xx"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 6
+    },
+    {
+      "type": "timeseries",
+      "title": "Errors: % of requests",
+      "description": "5xx is the service failing. 4xx is usually the client: a wrong URL, a missing password.",
+      "gridPos": {
+        "x": 12,
+        "y": 7,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "2m",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "100 * (sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"$service\",response_code_class=\"5xx\"}[$__interval])) or vector(0)) / sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"$service\"}[$__interval]))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "100 * (sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"$service\",response_code_class=\"4xx\"}[$__interval])) or vector(0)) / sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"$service\"}[$__interval]))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": 600000,
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "5xx"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "displayName",
+                "value": "4xx"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7
+    },
+    {
+      "type": "timeseries",
+      "title": "Latency: p50, p95, p99",
+      "description": "Half of requests are faster than p50; 1 in 100 is slower than p99. Averages hide the slow ones.",
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "2m",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "histogram_quantile(0.5, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"$service\"}[$__interval])))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"$service\"}[$__interval])))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "histogram_quantile(0.99, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"$service\"}[$__interval])))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": 600000,
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "p50"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "p95"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "C"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "p99"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8
+    },
+    {
+      "type": "timeseries",
+      "title": "Saturation: instances",
+      "description": "Active instances are serving; idle ones wait (and cost nothing with request-based billing). Store: 2 at most.",
+      "gridPos": {
+        "x": 12,
+        "y": 15,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "2m",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum by (state) (run_googleapis_com:container_instance_count{monitored_resource=\"cloud_run_revision\",service_name=\"$service\"})",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 30,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": 600000,
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "displayName": "${__field.labels.state}"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9
+    },
+    {
+      "type": "timeseries",
+      "title": "Saturation: CPU and memory (p95 across instances)",
+      "description": "How full each instance gets. Near 100% means it needs more, or more instances.",
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "2m",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(run_googleapis_com:container_cpu_utilizations_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"$service\"}[$__interval])))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(run_googleapis_com:container_memory_utilizations_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"$service\"}[$__interval])))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": 600000,
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "max": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "CPU"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Memory"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 10
+    },
+    {
+      "type": "timeseries",
+      "title": "Cold starts",
+      "description": "Bars: instances started. Line: how long the slowest starts took (p95). Scale-to-zero's price: the first visitor waits.",
+      "gridPos": {
+        "x": 12,
+        "y": 23,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "5m",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum(increase(run_googleapis_com:container_startup_latencies_count{monitored_resource=\"cloud_run_revision\",service_name=\"$service\"}[$__interval]))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "histogram_quantile(0.95, sum by (le) (rate(run_googleapis_com:container_startup_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"$service\"}[$__interval])))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": 600000,
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "starts"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "displayName",
+                "value": "startup p95"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 11
+    },
+    {
+      "type": "table",
+      "title": "Failed requests (4xx and 5xx), from Cloud Run's request logs",
+      "description": "4xx: the client's fault (a wrong URL, no password). 5xx: ours.",
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 24,
+        "h": 9
+      },
+      "datasource": {
+        "type": "googlecloud-logging-datasource",
+        "uid": "gcl"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "googlecloud-logging-datasource",
+            "uid": "gcl"
+          },
+          "queryText": "resource.type=\"cloud_run_revision\"\nresource.labels.service_name=\"$service\"\nhttpRequest.status>=400",
+          "projectId": "__GOOGLE_CLOUD_PROJECT__"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "labels",
+            "format": "auto",
+            "replace": false
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "includeByName": {
+              "timestamp": true,
+              "resource.labels.revision_name": true,
+              "httpRequest.status": true,
+              "httpRequest.request_method": true,
+              "httpRequest.request_url": true,
+              "httpRequest.latency": true,
+              "httpRequest.user_agent": true
+            },
+            "renameByName": {
+              "timestamp": "Time",
+              "resource.labels.revision_name": "Revision",
+              "httpRequest.status": "Status",
+              "httpRequest.request_method": "Method",
+              "httpRequest.request_url": "URL",
+              "httpRequest.latency": "Latency",
+              "httpRequest.user_agent": "User agent"
+            },
+            "indexByName": {
+              "timestamp": 0,
+              "resource.labels.revision_name": 1,
+              "httpRequest.status": 2,
+              "httpRequest.request_method": 3,
+              "httpRequest.request_url": 4,
+              "httpRequest.latency": 5,
+              "httpRequest.user_agent": 6
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 190
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Time",
+            "desc": true
+          }
+        ]
+      },
+      "id": 12
+    },
+    {
+      "type": "logs",
+      "title": "App log lines that mention an error",
+      "description": "Rails' own log, for the lines around an exception. Sentry has the full story.",
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 9
+      },
+      "datasource": {
+        "type": "googlecloud-logging-datasource",
+        "uid": "gcl"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "googlecloud-logging-datasource",
+            "uid": "gcl"
+          },
+          "queryText": "resource.type=\"cloud_run_revision\"\nresource.labels.service_name=\"$service\"\ntextPayload=~\"Error|Exception\"",
+          "projectId": "__GOOGLE_CLOUD_PROJECT__"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "dedupStrategy": "none"
+      },
+      "id": 13
+    }
+  ]
+}

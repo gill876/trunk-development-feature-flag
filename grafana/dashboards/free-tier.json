@@ -1,0 +1,610 @@
+{
+  "uid": "flagship-free-tier",
+  "title": "Free tier watch",
+  "description": "This month's usage against Google Cloud's free tier. The budget alerts email at ¥1,000 and ¥100; this shows how far away they are.",
+  "tags": [
+    "flagship",
+    "cost"
+  ],
+  "timezone": "browser",
+  "editable": false,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "",
+  "time": {
+    "from": "now/M",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "30s",
+      "1m",
+      "5m",
+      "15m"
+    ]
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "Flagship dashboards",
+      "type": "dashboards",
+      "tags": [
+        "flagship"
+      ],
+      "asDropdown": true,
+      "includeVars": false,
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "type": "text",
+      "title": "What's free each month",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 9
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "The demo is sized to stay inside Google Cloud's free tier. Cloud Run's allowance is **per billing account**, so\nother projects on the same account share it. Firestore's is per day. Gauges turn orange at 50% and red at 80%.\n\n| | Free | Where it's counted |\n|---|---|---|\n| Cloud Run CPU | 180,000 vCPU-seconds | Only while handling requests (request-based billing) |\n| Cloud Run memory | 360,000 GiB-seconds | Store, dashboard and bots 0.5 GiB; Grafana 2 GiB |\n| Cloud Run requests | 2 million | Every request, bots included |\n| Firestore | 50,000 reads and 20,000 writes a day | The board document |\n| Cloud Logging | 50 GiB per project | Request logs and app logs |\n| Cloud Monitoring reads | 1 million time series per billing account | Every Grafana panel refresh. The console is free |\n"
+      },
+      "id": 1
+    },
+    {
+      "type": "gauge",
+      "title": "Cloud Run vCPU-seconds, this month",
+      "description": "Every service and job here has 1 vCPU, so this is billable instance time.",
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 6,
+        "h": 6
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "1h",
+      "maxDataPoints": 50,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "(sum(increase(run_googleapis_com:container_billable_instance_time{monitored_resource=\"cloud_run_revision\"}[$__interval])) or vector(0)) + (sum(increase(run_googleapis_com:container_billable_instance_time{monitored_resource=\"cloud_run_job\"}[$__interval])) or vector(0))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 90000
+              },
+              {
+                "color": "red",
+                "value": 144000
+              }
+            ]
+          },
+          "decimals": 0,
+          "min": 0,
+          "max": 180000
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false
+      },
+      "id": 2
+    },
+    {
+      "type": "gauge",
+      "title": "Cloud Run GiB-seconds, this month",
+      "description": "Billable time × memory: 0.5 GiB for the store, dashboard and bots, 2 GiB for Grafana.",
+      "gridPos": {
+        "x": 6,
+        "y": 9,
+        "w": 6,
+        "h": 6
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "1h",
+      "maxDataPoints": 50,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "0.5 * (sum(increase(run_googleapis_com:container_billable_instance_time{monitored_resource=\"cloud_run_revision\",service_name=~\"flagship|flagship-control\"}[$__interval])) or vector(0)) + 2 * (sum(increase(run_googleapis_com:container_billable_instance_time{monitored_resource=\"cloud_run_revision\",service_name=\"flagship-grafana\"}[$__interval])) or vector(0)) + 0.5 * (sum(increase(run_googleapis_com:container_billable_instance_time{monitored_resource=\"cloud_run_job\"}[$__interval])) or vector(0))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 180000
+              },
+              {
+                "color": "red",
+                "value": 288000
+              }
+            ]
+          },
+          "decimals": 0,
+          "min": 0,
+          "max": 360000
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false
+      },
+      "id": 3
+    },
+    {
+      "type": "gauge",
+      "title": "Cloud Run requests, this month",
+      "description": "All services.",
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 6,
+        "h": 6
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "1h",
+      "maxDataPoints": 50,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "(sum(increase(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\"}[$__interval])) or vector(0))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1000000
+              },
+              {
+                "color": "red",
+                "value": 1600000
+              }
+            ]
+          },
+          "decimals": 0,
+          "min": 0,
+          "max": 2000000
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false
+      },
+      "id": 4
+    },
+    {
+      "type": "gauge",
+      "title": "Logs ingested, this month",
+      "description": "Cloud Logging's free 50 GiB.",
+      "gridPos": {
+        "x": 18,
+        "y": 9,
+        "w": 6,
+        "h": 6
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "1h",
+      "maxDataPoints": 50,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "(sum(increase(logging_googleapis_com:billing_bytes_ingested[$__interval])) or vector(0))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 26843545600
+              },
+              {
+                "color": "red",
+                "value": 42949672960
+              }
+            ]
+          },
+          "min": 0,
+          "max": 53687091200
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false
+      },
+      "id": 5
+    },
+    {
+      "type": "gauge",
+      "title": "Firestore reads, last 24 hours",
+      "description": "Each dashboard refresh reads the board once; each bot run reads it once more.",
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 6,
+        "h": 6
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "10m",
+      "maxDataPoints": 50,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum(increase(firestore_googleapis_com:document_read_count[24h])) or vector(0)",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 25000
+              },
+              {
+                "color": "red",
+                "value": 40000
+              }
+            ]
+          },
+          "decimals": 0,
+          "min": 0,
+          "max": 50000
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false
+      },
+      "id": 6
+    },
+    {
+      "type": "gauge",
+      "title": "Firestore writes, last 24 hours",
+      "description": "Each bot run writes the board once.",
+      "gridPos": {
+        "x": 6,
+        "y": 15,
+        "w": 6,
+        "h": 6
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "10m",
+      "maxDataPoints": 50,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum(increase(firestore_googleapis_com:document_write_count[24h])) or vector(0)",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 10000
+              },
+              {
+                "color": "red",
+                "value": 16000
+              }
+            ]
+          },
+          "decimals": 0,
+          "min": 0,
+          "max": 20000
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false
+      },
+      "id": 7
+    },
+    {
+      "type": "timeseries",
+      "title": "Billable instance time, by service",
+      "description": "Seconds of instance time per hour. Spikes are demo mode, deploys and Grafana sessions.",
+      "gridPos": {
+        "x": 12,
+        "y": 15,
+        "w": 12,
+        "h": 6
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "1h",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum by (service_name) (increase(run_googleapis_com:container_billable_instance_time{monitored_resource=\"cloud_run_revision\"}[$__interval]))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum by (job_name) (increase(run_googleapis_com:container_billable_instance_time{monitored_resource=\"cloud_run_job\"}[$__interval]))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 30,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": 600000,
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "displayName": "${__field.labels.service_name}${__field.labels.job_name}"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8
+    }
+  ]
+}

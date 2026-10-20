@@ -185,6 +185,33 @@ bots_off() {
   run gcloud scheduler jobs pause "$SCHEDULE" --location="$REGION" "${P[@]}"
 }
 
+# Grafana over Cloud Monitoring and Cloud Logging. Cloud Run reports its own metrics, so the app
+# needs no agent. The image is named after the grafana/ folder's git tree: it's rebuilt only when
+# that folder changes, and redeployed only when the image does. CI runs this after every ship.
+grafana() {
+  need_project
+  [ -z "$(git status --porcelain grafana)" ] || die "Commit grafana/ first: the image is named after it."
+  local image deployed
+  image="$REGISTRY/grafana:$(git rev-parse --short=12 HEAD:grafana)"
+  if gcloud artifacts docker images describe "$image" "${P[@]}" >/dev/null 2>&1; then
+    say "Grafana's image for these dashboards is already built."
+  else
+    run gcloud builds submit grafana --tag="$image" --region="$REGION" "${P[@]}"
+  fi
+  deployed=$(gcloud run services describe "$GRAFANA" "${R[@]}" --format="value(spec.template.spec.containers[0].image)" 2>/dev/null || true)
+  if [ "$deployed" = "$image" ]; then
+    say "Grafana already runs these dashboards."
+  else
+    # --allow-unauthenticated: Grafana has its own login (user flagship, make password).
+    # 2 GiB: Grafana 13 idles at about 850 MiB and was killed for going over 1 GiB.
+    run gcloud run deploy "$GRAFANA" --image="$image" "${R[@]}" --service-account="$(sa flagship-grafana)" \
+      --allow-unauthenticated --port=3000 --min-instances=0 --max-instances=1 --concurrency=80 \
+      --cpu=1 --memory=2Gi --cpu-boost --timeout=300 \
+      --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID" --set-secrets="GF_SECURITY_ADMIN_PASSWORD=control-password:latest"
+  fi
+  echo "Grafana: $(gcloud run services describe "$GRAFANA" "${R[@]}" --format='value(status.url)')  (user: flagship, password: make password)"
+}
+
 # Turns Sentry on in GCP: the DSN goes to Secret Manager, then to the store, the dashboard
 # and the bots. Get it from Sentry: Settings > Projects > flagship > Client Keys (DSN).
 sentry() {
@@ -216,6 +243,7 @@ urls() {
   echo "Store:      $(traffic url)"
   echo "Canary URL: $(traffic url canary || true)"
   echo "Dashboard:  $(gcloud run services describe "$CONTROL" "${R[@]}" --format='value(status.url)' 2>/dev/null)  (user: flagship, password: make password)"
+  echo "Grafana:    $(gcloud run services describe "$GRAFANA" "${R[@]}" --format='value(status.url)' 2>/dev/null)  (same login)"
 }
 
 password() {
@@ -233,9 +261,9 @@ teardown() {
 
 command="${1:-}"
 case "$command" in
-  launch|tools|ship|canary|promote|rollback|flag|contract|sentry|bots|demo|status|urls|password|teardown) "$command" ;;
+  launch|tools|ship|canary|promote|rollback|flag|contract|grafana|sentry|bots|demo|status|urls|password|teardown) "$command" ;;
   ship-broken) ship_broken ;;
   flag-off) flag_off ;;
   bots-off) bots_off ;;
-  *) die "usage: script/flagship launch|tools|ship|ship-broken|canary|promote|rollback|flag|flag-off|contract|sentry|bots|demo|bots-off|status|urls|password|teardown" ;;
+  *) die "usage: script/flagship launch|tools|ship|ship-broken|canary|promote|rollback|flag|flag-off|contract|grafana|sentry|bots|demo|bots-off|status|urls|password|teardown" ;;
 esac

@@ -24,7 +24,8 @@ run gcloud billing projects link "$PROJECT_ID" --billing-account="$BILLING_ACCOU
 say "== APIs"
 run gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com \
   firestore.googleapis.com secretmanager.googleapis.com cloudscheduler.googleapis.com iam.googleapis.com \
-  iamcredentials.googleapis.com sts.googleapis.com billingbudgets.googleapis.com "${P[@]}"
+  iamcredentials.googleapis.com sts.googleapis.com billingbudgets.googleapis.com \
+  monitoring.googleapis.com logging.googleapis.com "${P[@]}"
 
 say "== Budget alerts (they email you; they don't stop anything)"
 budgets=$(gcloud billing budgets list --billing-account="$BILLING_ACCOUNT" --billing-project="$PROJECT_ID" --format="value(displayName)")
@@ -51,7 +52,7 @@ run gcloud artifacts repositories set-cleanup-policies "$REPO" --location="$REGI
   --policy=script/artifact-cleanup.json --no-dry-run
 
 say "== Service accounts: one per piece, each with only what it needs"
-for name in flagship-store flagship-control flagship-bots flagship-scheduler flagship-deployer; do
+for name in flagship-store flagship-control flagship-bots flagship-scheduler flagship-deployer flagship-grafana; do
   gcloud iam service-accounts describe "$(sa $name)" "${P[@]}" >/dev/null 2>&1 || \
     run gcloud iam service-accounts create "$name" --display-name="$name" "${P[@]}"
 done
@@ -63,11 +64,15 @@ grant flagship-bots roles/datastore.user                    # write the board
 grant flagship-bots roles/run.viewer                        # read the store's traffic split
 grant flagship-bots roles/cloudscheduler.admin              # switch demo mode off again
 grant flagship-scheduler roles/run.invoker                  # start the bots job
+grant flagship-grafana roles/monitoring.viewer              # read Cloud Run's metrics
+grant flagship-grafana roles/logging.viewer                 # read request and app logs
 for role in roles/run.admin roles/cloudbuild.builds.editor roles/storage.admin roles/viewer roles/serviceusage.serviceUsageConsumer; do
   grant flagship-deployer "$role"                           # CI: build and ship canaries
 done
-run gcloud iam service-accounts add-iam-policy-binding "$(sa flagship-store)" "${P[@]}" \
-  --member="serviceAccount:$(sa flagship-deployer)" --role=roles/iam.serviceAccountUser --quiet >/dev/null
+for name in flagship-store flagship-grafana; do              # CI deploys the store and Grafana
+  run gcloud iam service-accounts add-iam-policy-binding "$(sa $name)" "${P[@]}" \
+    --member="serviceAccount:$(sa flagship-deployer)" --role=roles/iam.serviceAccountUser --quiet >/dev/null
+done
 # Builds run as the Compute Engine default service account, and starting one means acting as it.
 number=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
 run gcloud iam service-accounts add-iam-policy-binding "$number-compute@developer.gserviceaccount.com" "${P[@]}" \
@@ -85,8 +90,10 @@ for name in flagship-store flagship-control flagship-bots; do
   run gcloud secrets add-iam-policy-binding rails-master-key --member="serviceAccount:$(sa $name)" \
     --role=roles/secretmanager.secretAccessor "${P[@]}" --quiet >/dev/null
 done
-run gcloud secrets add-iam-policy-binding control-password --member="serviceAccount:$(sa flagship-control)" \
-  --role=roles/secretmanager.secretAccessor "${P[@]}" --quiet >/dev/null
+for name in flagship-control flagship-grafana; do              # one login for both dashboards
+  run gcloud secrets add-iam-policy-binding control-password --member="serviceAccount:$(sa $name)" \
+    --role=roles/secretmanager.secretAccessor "${P[@]}" --quiet >/dev/null
+done
 
 if [ -n "$GITHUB_REPO" ]; then
   say "== GitHub Actions: keyless deploys, and only from $GITHUB_REPO's main branch"

@@ -1,0 +1,692 @@
+{
+  "uid": "flagship-canary",
+  "title": "Canary: old vs new",
+  "description": "During a canary, two revisions answer the store's URL. Who gets the traffic, and is the new one worse?",
+  "tags": [
+    "flagship",
+    "canary"
+  ],
+  "timezone": "browser",
+  "editable": false,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "1m",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "30s",
+      "1m",
+      "5m",
+      "15m"
+    ]
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "Flagship dashboards",
+      "type": "dashboards",
+      "tags": [
+        "flagship"
+      ],
+      "asDropdown": true,
+      "includeVars": false,
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "type": "text",
+      "title": "How to read this",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "During `make canary PCT=10`, two **revisions** of the store answer the same URL. Each line is one revision\n(`flagship-000NN-xyz`; `make status` says which is `stable` and which is `canary`). Compare them:\n**share of requests** (did the split happen?), **errors** and **latency** (is the new one worse?).\nSame or better → `make promote`. Worse → `make rollback`. Cloud Run reports these numbers itself, about a minute behind.\n"
+      },
+      "id": 1
+    },
+    {
+      "type": "timeseries",
+      "title": "Share of requests, by revision",
+      "description": "Each revision's share of the store's requests. A 10% canary is a thin band on top.",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "2m",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum by (revision_name) (rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\"}[$__interval]))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 30,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": 600000,
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "percent",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "displayName": "${__field.labels.revision_name}"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 2
+    },
+    {
+      "type": "timeseries",
+      "title": "Requests per second, by revision",
+      "description": "All requests to the store, including the bots and Schemathesis.",
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "2m",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum by (revision_name) (rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\"}[$__interval]))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 30,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": 600000,
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "displayName": "${__field.labels.revision_name}"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 3
+    },
+    {
+      "type": "timeseries",
+      "title": "Errors (5xx), % of each revision's requests",
+      "description": "A broken canary shows up here first. Under 1% is green; over 5% is red.",
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "2m",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "100 * (sum by (revision_name) (rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\",response_code_class=\"5xx\"}[$__interval])) or 0 * sum by (revision_name) (rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\"}[$__interval]))) / sum by (revision_name) (rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\"}[$__interval]))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": 600000,
+            "axisSoftMin": 0,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "displayName": "${__field.labels.revision_name}",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 4
+    },
+    {
+      "type": "timeseries",
+      "title": "p95 latency, by revision",
+      "description": "95% of requests were faster than this. A canary that's slower than stable is worse, even with no errors.",
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "2m",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "histogram_quantile(0.95, sum by (revision_name, le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\"}[$__interval])))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": 600000,
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "displayName": "${__field.labels.revision_name}"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 5
+    },
+    {
+      "type": "bargauge",
+      "title": "Requests in this time range",
+      "description": "Totals for the time range picked at the top right.",
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 8,
+        "h": 7
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "5m",
+      "maxDataPoints": 100,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum by (revision_name) (increase(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\"}[$__interval]))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "displayName": "${__field.labels.revision_name}",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "text",
+        "namePlacement": "left",
+        "sizing": "manual",
+        "minVizHeight": 16,
+        "maxVizHeight": 22,
+        "minVizWidth": 8,
+        "text": {
+          "titleSize": 13,
+          "valueSize": 14
+        },
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 6
+    },
+    {
+      "type": "bargauge",
+      "title": "Errors (5xx) in this time range",
+      "description": "No bar means no 5xx at all.",
+      "gridPos": {
+        "x": 8,
+        "y": 20,
+        "w": 8,
+        "h": 7
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "5m",
+      "maxDataPoints": 100,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum by (revision_name) (increase(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\",response_code_class=\"5xx\"}[$__interval]))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "displayName": "${__field.labels.revision_name}",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "text",
+        "namePlacement": "left",
+        "sizing": "manual",
+        "minVizHeight": 16,
+        "maxVizHeight": 22,
+        "minVizWidth": 8,
+        "text": {
+          "titleSize": 13,
+          "valueSize": 14
+        },
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 7
+    },
+    {
+      "type": "timeseries",
+      "title": "Instances, by revision",
+      "description": "Cloud Run starts instances when requests arrive and stops them when idle. The store allows 2 at most.",
+      "gridPos": {
+        "x": 16,
+        "y": 20,
+        "w": 8,
+        "h": 7
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "2m",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum by (revision_name, state) (run_googleapis_com:container_instance_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\"})",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "insertNulls": 600000,
+            "axisSoftMin": 0
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "displayName": "${__field.labels.revision_name} ${__field.labels.state}"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8
+    },
+    {
+      "type": "table",
+      "title": "Failed requests (5xx), from Cloud Run's request logs",
+      "description": "Which revision answered each one, and to whom. Sentry has the stack traces.",
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 24,
+        "h": 9
+      },
+      "datasource": {
+        "type": "googlecloud-logging-datasource",
+        "uid": "gcl"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "googlecloud-logging-datasource",
+            "uid": "gcl"
+          },
+          "queryText": "resource.type=\"cloud_run_revision\"\nresource.labels.service_name=\"flagship\"\nhttpRequest.status>=500",
+          "projectId": "__GOOGLE_CLOUD_PROJECT__"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "labels",
+            "format": "auto",
+            "replace": false
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "includeByName": {
+              "timestamp": true,
+              "resource.labels.revision_name": true,
+              "httpRequest.status": true,
+              "httpRequest.request_method": true,
+              "httpRequest.request_url": true,
+              "httpRequest.latency": true,
+              "httpRequest.user_agent": true
+            },
+            "renameByName": {
+              "timestamp": "Time",
+              "resource.labels.revision_name": "Revision",
+              "httpRequest.status": "Status",
+              "httpRequest.request_method": "Method",
+              "httpRequest.request_url": "URL",
+              "httpRequest.latency": "Latency",
+              "httpRequest.user_agent": "User agent"
+            },
+            "indexByName": {
+              "timestamp": 0,
+              "resource.labels.revision_name": 1,
+              "httpRequest.status": 2,
+              "httpRequest.request_method": 3,
+              "httpRequest.request_url": 4,
+              "httpRequest.latency": 5,
+              "httpRequest.user_agent": 6
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 190
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Time",
+            "desc": true
+          }
+        ]
+      },
+      "id": 9
+    }
+  ]
+}

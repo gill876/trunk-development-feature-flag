@@ -1,0 +1,12 @@
+# Every JSON file in grafana/dashboards becomes a dashboard in the Flagship folder. They can't be
+# saved from the UI: change a dashboard by editing its file (or exporting it from Grafana), in a PR.
+apiVersion: 1
+
+providers:
+  - name: flagship
+    folder: Flagship
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /tmp/dashboards # start.sh copies grafana/dashboards here, project ID filled in

@@ -1,0 +1,27 @@
+# Where the numbers come from. Both read the project's own data with Grafana's service account
+# (flagship-grafana: roles/monitoring.viewer and roles/logging.viewer). On Cloud Run that account
+# needs no key file: "gce" auth asks the metadata server for a token, as Cloud Run apps do.
+apiVersion: 1
+
+datasources:
+  # Cloud Run reports requests, latency, instances, CPU and memory for every revision, for free.
+  # The dashboards query it in PromQL, the same language as Prometheus.
+  - name: Google Cloud Monitoring
+    uid: gcm
+    type: stackdriver
+    access: proxy
+    isDefault: true
+    editable: false
+    jsonData:
+      authenticationType: gce
+      defaultProject: ${GOOGLE_CLOUD_PROJECT}
+
+  # Request logs and app logs, for the "what were those 500s" panels.
+  - name: Google Cloud Logging
+    uid: gcl
+    type: googlecloud-logging-datasource
+    access: proxy
+    editable: false
+    jsonData:
+      authenticationType: gce
+      defaultProject: ${GOOGLE_CLOUD_PROJECT}
