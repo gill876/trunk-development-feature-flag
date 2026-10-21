@@ -7,6 +7,7 @@ SERVICE=flagship            # the store: the only service that gets canaries
 CONTROL=flagship-control    # the dashboard
 JOB=flagship-bots           # the 12 bots, as a Cloud Run job
 SCHEDULE=flagship-bots-demo # Cloud Scheduler job behind demo mode (paused unless a demo is on)
+GRAFANA=flagship-grafana    # Grafana, with the dashboards in grafana/
 REPO=flagship               # Artifact Registry repository
 
 # Print a command, then run it. Everything that changes something in GCP goes through here,

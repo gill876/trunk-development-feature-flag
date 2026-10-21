@@ -137,6 +137,10 @@ jobs:
       - name: Ship a canary at 0%
         run: make ship
 
+      # Dashboards are code too: a merge that changes grafana/ redeploys Grafana. Otherwise a no-op.
+      - name: Deploy Grafana's dashboards
+        run: make grafana
+
       # The canary has no traffic yet, so this is the moment to catch a broken API: if this
       # step fails, don't promote. Schemathesis needs Python 3.11+; the runner has it.
       - name: Check the canary against the OpenAPI spec

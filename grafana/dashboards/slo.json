@@ -1,0 +1,577 @@
+{
+  "uid": "flagship-slo",
+  "title": "SLO: store availability",
+  "description": "A service level objective for the store: 99% of requests succeed, over any 7 days. How much error budget is left, and how fast it's burning.",
+  "tags": [
+    "flagship",
+    "sre"
+  ],
+  "timezone": "browser",
+  "editable": false,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "30s",
+      "1m",
+      "5m",
+      "15m"
+    ]
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "Flagship dashboards",
+      "type": "dashboards",
+      "tags": [
+        "flagship"
+      ],
+      "asDropdown": true,
+      "includeVars": false,
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "type": "text",
+      "title": "The objective",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 5
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**SLI** (what we measure): the share of store requests that don't fail with a 5xx.\n**SLO** (what we promise): **99%** of them succeed, over any 7 days. That leaves an **error budget** of 1%: failures we\ncan afford, and spend on shipping things (a canary that fails 10% of its requests for a few minutes uses some).\n**Burn rate**: how fast the budget goes. 1 spends exactly the budget in 7 days; 14.4 spends it in about 12 hours,\nwhich is when a real team gets paged. The bad-canary drill burns it on purpose. The bots' requests count too.\n"
+      },
+      "id": 1
+    },
+    {
+      "type": "stat",
+      "title": "Availability, last 7 days",
+      "description": "Share of store requests that didn't fail with a 5xx.",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "1h",
+      "maxDataPoints": 50,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "100 * (1 - (sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\",response_code_class=\"5xx\"}[7d])) or vector(0)) / sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\"}[7d])))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 99
+              },
+              {
+                "color": "green",
+                "value": 99.5
+              }
+            ]
+          },
+          "decimals": 3
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "Error budget left",
+      "description": "100% is untouched. Below 0, the SLO is broken: time to slow down and fix things.",
+      "gridPos": {
+        "x": 6,
+        "y": 5,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "1h",
+      "maxDataPoints": 50,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "100 * (1 - ((sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\",response_code_class=\"5xx\"}[7d])) or vector(0)) / sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\"}[7d]))) / 0.01)",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 25
+              },
+              {
+                "color": "green",
+                "value": 50
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "Failed requests, last 7 days",
+      "description": "Requests that got a 5xx.",
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "1h",
+      "maxDataPoints": 50,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "sum(increase(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\",response_code_class=\"5xx\"}[7d])) or vector(0)",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 4
+    },
+    {
+      "type": "stat",
+      "title": "Failures the budget allows",
+      "description": "1% of all requests in the last 7 days.",
+      "gridPos": {
+        "x": 18,
+        "y": 5,
+        "w": 6,
+        "h": 5
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "1h",
+      "maxDataPoints": 50,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "0.01 * sum(increase(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\"}[7d]))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 5
+    },
+    {
+      "type": "timeseries",
+      "title": "Burn rate",
+      "description": "Above 1, the budget runs out before the 7 days are up. Above 14.4 (1 hour), page someone.",
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 12,
+        "h": 9
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "10m",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "((sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\",response_code_class=\"5xx\"}[1h])) or vector(0)) / sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\"}[1h]))) / 0.01",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "((sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\",response_code_class=\"5xx\"}[6h])) or vector(0)) / sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\"}[6h]))) / 0.01",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "auto",
+            "pointSize": 6,
+            "spanNulls": false,
+            "insertNulls": 600000,
+            "axisSoftMin": 0,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 14.4
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "last 1 hour"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "last 6 hours"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 6
+    },
+    {
+      "type": "timeseries",
+      "title": "Availability, hour by hour",
+      "description": "Each point: the share of requests that succeeded in the hour before it. The line is the 99% objective.",
+      "gridPos": {
+        "x": 12,
+        "y": 10,
+        "w": 12,
+        "h": 9
+      },
+      "datasource": {
+        "type": "stackdriver",
+        "uid": "gcm"
+      },
+      "interval": "10m",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "stackdriver",
+            "uid": "gcm"
+          },
+          "queryType": "promQL",
+          "promQLQuery": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "expr": "100 * (1 - (sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\",response_code_class=\"5xx\"}[1h])) or vector(0)) / sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"flagship\"}[1h])))",
+            "step": "$__interval"
+          },
+          "timeSeriesList": {
+            "projectName": "__GOOGLE_CLOUD_PROJECT__",
+            "crossSeriesReducer": "REDUCE_NONE"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "auto",
+            "pointSize": 6,
+            "spanNulls": false,
+            "insertNulls": 600000,
+            "axisSoftMin": 95,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "availability"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7
+    }
+  ]
+}
