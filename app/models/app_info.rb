@@ -7,4 +7,5 @@ module AppInfo
   def control? = role == "control"
   def revision = ENV.fetch("K_REVISION", "local")
   def version = ENV.fetch("APP_VERSION", "dev")
+  def release = "flagship@#{version}" # what Sentry calls a build; config/initializers/sentry.rb agrees
 end

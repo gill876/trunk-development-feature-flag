@@ -5,12 +5,18 @@ class StoreController < ApplicationController
   BROKEN_MESSAGE = "Simulated bug: this revision was deployed with BREAK_STORE=1."
 
   include BuildHeaders
-  rescue_from(SimulatedBug) { |error| render plain: error.message, status: :internal_server_error }
+  include SentryVisitorContext
+
+  rescue_from(SimulatedBug) do |error|
+    Rails.error.report(error, handled: false)
+    render plain: error.message, status: :internal_server_error
+  end
 
   def show
+    @visitor = Visitor.from(request, cookies)
+    tell_sentry_about(@visitor)
     raise SimulatedBug, BROKEN_MESSAGE if ENV["BREAK_STORE"] == "1"
 
-    @visitor = Visitor.from(request, cookies)
     @color = FeatureFlags.enabled_for?(:orange_button, @visitor) ? "orange" : "blue"
     @flag_reason = FeatureFlags.reason_for(:orange_button, @visitor)
   end

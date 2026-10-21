@@ -191,7 +191,7 @@ components:
 
     Purchase:
       type: object
-      required: [id, visitor, quantity, color, revision, version]
+      required: [id, visitor, quantity, color, total_yen, revision, version]
       properties:
         id:
           type: string
@@ -208,6 +208,10 @@ components:
           type: string
           enum: [blue, orange]
           description: The Buy now button's color for this visitor.
+        total_yen:
+          type: integer
+          minimum: 0
+          example: 3600
         revision:
           type: string
         version:

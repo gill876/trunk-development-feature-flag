@@ -20,6 +20,9 @@ build() {
   fi
 }
 
+# ",SENTRY_DSN=..." for --set-secrets, once `make sentry` has stored the DSN.
+sentry_secret() { gcloud secrets describe sentry-dsn "${P[@]}" >/dev/null 2>&1 && echo ",SENTRY_DSN=sentry-dsn:latest" || true; }
+
 store_flags=(--service-account="$(sa flagship-store)" --allow-unauthenticated
   --min-instances=0 --max-instances=2 --concurrency=10 --cpu=1 --memory=512Mi --timeout=30 --cpu-boost)
 
@@ -28,7 +31,7 @@ launch() {
   need_project
   build
   run gcloud run deploy "$SERVICE" --image="$(image)" "${R[@]}" "${store_flags[@]}" \
-    --set-env-vars="APP_VERSION=$(version)" --set-secrets="RAILS_MASTER_KEY=rails-master-key:latest"
+    --set-env-vars="APP_VERSION=$(version)" --set-secrets="RAILS_MASTER_KEY=rails-master-key:latest$(sentry_secret)"
   tools
   urls
 }
@@ -40,12 +43,12 @@ tools() {
   run gcloud run deploy "$CONTROL" --image="$(image)" "${R[@]}" --service-account="$(sa flagship-control)" \
     --allow-unauthenticated --min-instances=0 --max-instances=1 --concurrency=20 --cpu=1 --memory=512Mi --timeout=30 \
     --set-env-vars="APP_ROLE=control,APP_VERSION=$(version),GOOGLE_CLOUD_PROJECT=$PROJECT_ID,REGION=$REGION,BOARD_STORE=firestore,BOTS_JOB=$JOB" \
-    --set-secrets="RAILS_MASTER_KEY=rails-master-key:latest,CONTROL_PASSWORD=control-password:latest"
+    --set-secrets="RAILS_MASTER_KEY=rails-master-key:latest,CONTROL_PASSWORD=control-password:latest$(sentry_secret)"
   run gcloud run jobs deploy "$JOB" --image="$(image)" "${R[@]}" --service-account="$(sa flagship-bots)" \
     --command=/rails/bin/rails --args=runner,BotSquad.run --tasks=1 --max-retries=0 --task-timeout=180s \
     --cpu=1 --memory=512Mi \
     --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,REGION=$REGION,BOARD_STORE=firestore,STORE_SERVICE=$SERVICE,SCHEDULER_JOB=$SCHEDULE" \
-    --set-secrets="RAILS_MASTER_KEY=rails-master-key:latest"
+    --set-secrets="RAILS_MASTER_KEY=rails-master-key:latest$(sentry_secret)"
   if ! gcloud scheduler jobs describe "$SCHEDULE" --location="$REGION" "${P[@]}" >/dev/null 2>&1; then
     # Created with a once-a-year schedule and paused straight away, so it can't fire before
     # anyone asks. Demo mode resumes it; the bots pause it again after 30 minutes.
@@ -75,16 +78,28 @@ ship() {
   say "$(version) is deployed with 0% of traffic; only dev-01 sees it. Next: make canary PCT=10"
 }
 
-# The bad-canary drill: today's image again, with BREAK_STORE=1 standing in for a bad commit.
+# The bad-canary drills: today's image again, with BREAK_STORE standing in for a bad commit.
+#   BUG=page      every page fails. The bots see it at once.
+#   BUG=checkout  Buy now fails, for orange-button visitors only. The bots only look at the page,
+#                 so they see nothing wrong; Sentry sees it from real clicks.
 ship_broken() {
   need_project
+  local bug="${BUG:-page}" value current image_now
+  case "$bug" in
+    page) value=1 ;;
+    checkout) value=checkout ;;
+    *) die "BUG is page (every page fails) or checkout (Buy now fails for orange buttons)." ;;
+  esac
   ! traffic "split?" || die "A canary is taking traffic. Finish it first: make promote or make rollback."
-  local current image_now
   current=$(traffic serving)
   image_now=$(gcloud run services describe "$SERVICE" "${R[@]}" --format="value(spec.template.spec.containers[0].image)")
-  run gcloud run deploy "$SERVICE" --image="$image_now" "${R[@]}" --no-traffic --tag=canary --update-env-vars=BREAK_STORE=1
+  run gcloud run deploy "$SERVICE" --image="$image_now" "${R[@]}" --no-traffic --tag=canary --update-env-vars=BREAK_STORE=$value
   run gcloud run services update-traffic "$SERVICE" "${R[@]}" --update-tags="stable=$current"
-  say "A broken canary is deployed with 0% of traffic. Next: make canary PCT=10, watch the errors, then make rollback"
+  if [ "$bug" = checkout ]; then
+    say "A canary whose checkout fails for orange buttons, at 0%. Next: open $(traffic url canary)/?as=beta-02 (with the flag on for beta) and click Buy now, then look in Sentry. make rollback when done."
+  else
+    say "A broken canary is deployed with 0% of traffic. Next: make canary PCT=10, watch the errors, then make rollback"
+  fi
 }
 
 # Step 2: send PCT% of requests to the canary. The rest stay on stable.
@@ -170,6 +185,27 @@ bots_off() {
   run gcloud scheduler jobs pause "$SCHEDULE" --location="$REGION" "${P[@]}"
 }
 
+# Turns Sentry on in GCP: the DSN goes to Secret Manager, then to the store, the dashboard
+# and the bots. Get it from Sentry: Settings > Projects > flagship > Client Keys (DSN).
+sentry() {
+  need_project
+  local dsn="${DSN:?Set DSN, e.g. make sentry DSN=https://key@o1.ingest.us.sentry.io/2}" name
+  traffic "on-latest?" || die "Traffic is pinned to one revision (a canary is waiting, or you rolled back). Run make promote first."
+  if gcloud secrets describe sentry-dsn "${P[@]}" >/dev/null 2>&1; then
+    printf %s "$dsn" | run gcloud secrets versions add sentry-dsn --data-file=- "${P[@]}"
+  else
+    printf %s "$dsn" | run gcloud secrets create sentry-dsn --replication-policy=automatic --data-file=- "${P[@]}"
+  fi
+  for name in flagship-store flagship-control flagship-bots; do
+    run gcloud secrets add-iam-policy-binding sentry-dsn --member="serviceAccount:$(sa $name)" \
+      --role=roles/secretmanager.secretAccessor "${P[@]}" --quiet >/dev/null
+  done
+  # Like a flag change, this makes a new revision of each. Later deploys keep the secret.
+  run gcloud run services update "$SERVICE" "${R[@]}" --update-secrets=SENTRY_DSN=sentry-dsn:latest
+  run gcloud run services update "$CONTROL" "${R[@]}" --update-secrets=SENTRY_DSN=sentry-dsn:latest
+  run gcloud run jobs update "$JOB" "${R[@]}" --update-secrets=SENTRY_DSN=sentry-dsn:latest
+}
+
 status() {
   need_project
   traffic table
@@ -197,9 +233,9 @@ teardown() {
 
 command="${1:-}"
 case "$command" in
-  launch|tools|ship|canary|promote|rollback|flag|contract|bots|demo|status|urls|password|teardown) "$command" ;;
+  launch|tools|ship|canary|promote|rollback|flag|contract|sentry|bots|demo|status|urls|password|teardown) "$command" ;;
   ship-broken) ship_broken ;;
   flag-off) flag_off ;;
   bots-off) bots_off ;;
-  *) die "usage: script/flagship launch|tools|ship|ship-broken|canary|promote|rollback|flag|flag-off|contract|bots|demo|bots-off|status|urls|password|teardown" ;;
+  *) die "usage: script/flagship launch|tools|ship|ship-broken|canary|promote|rollback|flag|flag-off|contract|sentry|bots|demo|bots-off|status|urls|password|teardown" ;;
 esac

@@ -5,7 +5,9 @@ class BotSquad
   HANDLES = COHORTS.flat_map { |cohort, count| (1..count).map { |n| format("%s-%02d", cohort, n) } }.freeze
   VISITS_PER_BOT = 3
 
-  def self.run = new.run
+  # If the run itself crashes (not a bot seeing a 500: that's data), Rails.error passes the
+  # exception to Sentry, then the job fails as it always did.
+  def self.run = Rails.error.record(source: "flagship.bots") { new.run }
 
   def run
     DemoMode.tick
