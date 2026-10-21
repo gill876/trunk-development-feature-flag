@@ -1,31 +1,38 @@
-# Files in the config/locales directory are used for internationalization and
-# are automatically loaded by Rails. If you want to use locales other than
-# English, add the necessary files in this directory.
-#
-# To use the locales, use `I18n.t`:
-#
-#     I18n.t "hello"
-#
-# In views, this is aliased to just `t`:
-#
-#     <%= t("hello") %>
-#
-# To use a different locale, set it with `I18n.locale`:
-#
-#     I18n.locale = :es
-#
-# This would use the information in config/locales/es.yml.
-#
-# To learn more about the API, please read the Rails Internationalization guide
-# at https://guides.rubyonrails.org/i18n.html.
-#
-# Be aware that YAML interprets the following case-insensitive strings as
-# booleans: `true`, `false`, `on`, `off`, `yes`, `no`. Therefore, these strings
-# must be quoted to be interpreted as strings. For example:
-#
-#     en:
-#       "yes": yup
-#       enabled: "ON"
-
+# The dashboard's words. ja.yml has the same keys; test/i18n_test.rb checks that they match.
 en:
-  hello: "Hello world"
+  control:
+    subtitle: "What each bot saw on its last 3 runs. Refreshes every 10 s while this tab is open."
+    start_demo: "Start 30-min demo"
+    send_bots: "Send bots now"
+    bots_sent: "Bots sent. Their results land here in about 30 seconds."
+    demo_started: "Demo mode is on: the bots run every minute for the next 30 minutes."
+    language: "Language"
+  board:
+    empty_title: "No runs yet"
+    empty_html: "Press <b>%{button}</b>. The first run takes about 30 seconds, since the store may be starting from zero."
+    last_run: "Last run %{time} ago (%{clock})."
+    demo_on: "Demo mode is on until %{time}."
+    demo_off: "Demo mode is off."
+    traffic: "Traffic on the main URL"
+    orange: "Orange button, latest visit"
+    orange_value: "%{orange} of %{total} bots"
+    errors: "Errors, last 3 runs"
+    errors_value: "%{errors} of %{visits} visits"
+    canary: "Canary tag URL"
+    none: "none"
+    no_split: "no split (local)"
+    legend:
+      blue: "blue: flag off"
+      orange: "orange: flag on"
+      canary: "served by the canary"
+      error: "error"
+      note: "3 runs × 3 visits, newest on the right"
+    cohorts: "By cohort, latest run"
+    cohort_value: "%{orange} of %{total} see orange"
+    cohorts_note: "dev-01 calls the canary's tag URL whenever there is one, so it skips the traffic split."
+    no_visits: "no visits yet"
+    status: "status %{status}"
+    error_status: "error %{status}"
+    colors:
+      blue: "blue"
+      orange: "orange"

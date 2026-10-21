@@ -29,7 +29,7 @@ class Board
 
   # "90% rev 4 (stable) · 10% rev 5 (canary)"
   def traffic_summary
-    return "no split (local)" if traffic.serving.empty?
+    return I18n.t("board.no_split") if traffic.serving.empty?
 
     traffic.serving.map do |target|
       tag = traffic.tag_for(target.revision)
@@ -39,7 +39,7 @@ class Board
 
   def canary_summary
     canary = traffic.targets.find { |target| target.tag == "canary" }
-    canary ? self.class.revision_label(canary.revision) : "none"
+    canary ? self.class.revision_label(canary.revision) : I18n.t("board.none")
   end
 
   def rows
@@ -83,14 +83,21 @@ class Board
     def cell(visit, traffic)
       state = visit["status"] == 200 ? (visit["color"] || "missing") : "error"
       canary = traffic.main_revision.present? && visit["revision"].present? && visit["revision"] != traffic.main_revision
-      title = [ visit["status"] == 200 ? visit["color"] : "status #{visit['status']}", self.class.revision_label(visit["revision"]),
+      title = [ visit["status"] == 200 ? color_name(visit["color"]) : I18n.t("board.status", status: visit["status"]),
+        self.class.revision_label(visit["revision"]),
         visit["version"], ("#{visit['ms']} ms" if visit["ms"]) ].compact.join(" · ")
       Cell.new(state: state, canary: canary, title: title)
     end
 
     def describe(visit)
-      return "no visits yet" unless visit
-      what = visit["status"] == 200 ? visit["color"] : (visit["status"].zero? ? visit["error"] : "error #{visit['status']}")
+      return I18n.t("board.no_visits") unless visit
+      what = case visit["status"]
+      when 200 then color_name(visit["color"])
+      when 0 then visit["error"]
+      else I18n.t("board.error_status", status: visit["status"])
+      end
       [ what, (self.class.revision_label(visit["revision"]) if visit["revision"]) ].compact.join(" · ")
     end
+
+    def color_name(color) = color && I18n.t(color, scope: "board.colors", default: color)
 end

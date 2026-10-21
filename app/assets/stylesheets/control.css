@@ -29,7 +29,18 @@
 
 .control__header p { margin: 4px 0 0; color: var(--muted); }
 
-.control__actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.control__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+
+.control__lang { display: flex; gap: 2px; font-size: 14px; }
+.control__lang a {
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--muted);
+  text-decoration: none;
+}
+.control__lang a:hover { color: var(--ink); }
+.control__lang a[aria-current] { color: var(--ink); background: var(--surface); border-color: var(--line); }
 .inline-form { margin: 0; }
 
 .button {

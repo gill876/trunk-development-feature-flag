@@ -1,0 +1,55 @@
+# The dashboard in Japanese. Open it with ?locale=ja, or with a browser set to Japanese.
+ja:
+  control:
+    subtitle: "各Botが直近3回の実行で見たボタンの色です。このタブを開いている間、10秒ごとに更新します。"
+    start_demo: "30分デモを開始"
+    send_bots: "今すぐBotを実行"
+    bots_sent: "Botを実行しました。約30秒で結果がここに表示されます。"
+    demo_started: "デモモードを開始しました。これから30分間、Botが毎分実行されます。"
+    language: "言語"
+  board:
+    empty_title: "まだ実行履歴がありません"
+    empty_html: "<b>%{button}</b>を押してください。ストアがゼロから起動することがあるため、初回は30秒ほどかかります。"
+    last_run: "最終実行：%{clock}（%{time}経過）"
+    demo_on: "デモモードは%{time}まで実行中です。"
+    demo_off: "デモモードはオフです。"
+    traffic: "メインURLのトラフィック"
+    orange: "オレンジボタン（最新の訪問）"
+    orange_value: "%{total}体中 %{orange}体"
+    errors: "エラー（直近3回）"
+    errors_value: "%{visits}回中 %{errors}回"
+    canary: "カナリアタグURL"
+    none: "なし"
+    no_split: "分割なし（ローカル）"
+    legend:
+      blue: "青：フラグ オフ"
+      orange: "オレンジ：フラグ オン"
+      canary: "カナリアが応答"
+      error: "エラー"
+      note: "3回 × 3訪問、右が最新"
+    cohorts: "コホート別（最新の実行）"
+    cohort_value: "%{total}体中 %{orange}体がオレンジ"
+    cohorts_note: "dev-01はカナリアのタグURLがあればそちらに直接アクセスするため、トラフィック分割の影響を受けません。"
+    no_visits: "まだ訪問なし"
+    status: "ステータス %{status}"
+    error_status: "エラー %{status}"
+    colors:
+      blue: "青"
+      orange: "オレンジ"
+
+  # For time_ago_in_words. Rails ships English only; these follow the rails-i18n gem's ja.yml.
+  datetime:
+    distance_in_words:
+      about_x_hours: "約%{count}時間"
+      about_x_months: "約%{count}ヶ月"
+      about_x_years: "約%{count}年"
+      almost_x_years: "%{count}年弱"
+      half_a_minute: "30秒前後"
+      less_than_x_seconds: "%{count}秒未満"
+      less_than_x_minutes: "%{count}分未満"
+      over_x_years: "%{count}年以上"
+      x_seconds: "%{count}秒"
+      x_minutes: "%{count}分"
+      x_days: "%{count}日"
+      x_months: "%{count}ヶ月"
+      x_years: "%{count}年"

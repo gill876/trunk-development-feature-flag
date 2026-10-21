@@ -18,9 +18,10 @@
   --beta: #be185d;
   --user: #475569;
 
-  --sans: "IBM Plex Sans", system-ui, sans-serif;
-  --display: "Space Grotesk", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  /* Plex Sans JP covers Japanese text on the dashboard; the layout loads it only for ja. */
+  --sans: "IBM Plex Sans", "IBM Plex Sans JP", system-ui, sans-serif;
+  --display: "Space Grotesk", "IBM Plex Sans JP", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", "IBM Plex Sans JP", ui-monospace, monospace;
 }
 
 * { box-sizing: border-box; }
