@@ -40,7 +40,7 @@ group :development do
   gem "web-console"
 end
 
-gem "google-cloud-firestore", "~> 2.15", require: "google/cloud/firestore"
+gem "google-cloud-firestore", "~> 3.2", require: "google/cloud/firestore"
 gem "googleauth", "~> 1.17"
 
 # Errors, traces and logs to Sentry, when SENTRY_DSN is set [https://docs.sentry.io/platforms/ruby/guides/rails/]
