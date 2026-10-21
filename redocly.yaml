@@ -1,0 +1,11 @@
+# `make openapi` and CI lint openapi/openapi.yaml with Redocly's recommended rules.
+extends:
+  - recommended
+
+apis:
+  store:
+    root: openapi/openapi.yaml
+
+rules:
+  # The demo has no license file to point at.
+  info-license: off

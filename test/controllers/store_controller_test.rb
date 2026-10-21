@@ -6,6 +6,7 @@ class StoreControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "#buy[data-color=blue]", "Buy now"
+    assert_select "#order[hidden]"
     assert_select ".store__debug", /beta-02 \(beta\)/
     assert_equal "local", response.headers["X-Revision"]
     assert_equal "dev", response.headers["X-App-Version"]

@@ -75,10 +75,41 @@ jobs:
           RAILS_ENV: test
         run: bin/rails test
 
+  openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Lint the OpenAPI spec
+        run: npx --yes @redocly/cli@2.58.0 lint
+
+  # During a canary, old and new revisions answer side by side, so an API change must not break
+  # anyone still talking to the old one. oasdiff compares this branch's spec with the base branch's.
+  api_breaking:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Fail on breaking API changes
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if ! git show "origin/$BASE_REF:openapi/openapi.yaml" > "$RUNNER_TEMP/base.yaml" 2>/dev/null; then
+            echo "$BASE_REF has no openapi/openapi.yaml yet, so nothing can break."
+            exit 0
+          fi
+          docker run --rm -v "$RUNNER_TEMP:/base" -v "$PWD/openapi:/head" tufin/oasdiff:v1.33.0 \
+            breaking /base/base.yaml /head/openapi.yaml --fail-on ERR
+
   # Trunk-based: every merge to main ships a canary at 0% traffic. Promoting it is up to you
   # (make canary PCT=10, make promote). The repo variables come from `make setup GITHUB_REPO=...`.
   deploy:
-    needs: [ scan_ruby, lint, test ]
+    needs: [ scan_ruby, lint, test, openapi ]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.GCP_PROJECT_ID != ''
     runs-on: ubuntu-latest
     concurrency: deploy
@@ -105,3 +136,8 @@ jobs:
 
       - name: Ship a canary at 0%
         run: make ship
+
+      # The canary has no traffic yet, so this is the moment to catch a broken API: if this
+      # step fails, don't promote. Schemathesis needs Python 3.11+; the runner has it.
+      - name: Check the canary against the OpenAPI spec
+        run: make contract
